@@ -451,6 +451,7 @@
         <div class="actions">
           <button class="primary" id="saveBtn">Salva giorno</button>
           <button class="secondary" id="todayBtn">Vai a oggi</button>
+          <button class="secondary" id="testSupabaseBtn">Test Supabase</button>
           <button class="danger" id="deleteBtn">Elimina giorno</button>
         </div>
 
@@ -549,6 +550,7 @@
     const saveBtn = document.getElementById('saveBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const todayBtn = document.getElementById('todayBtn');
+    const testSupabaseBtn = document.getElementById('testSupabaseBtn');
     const statusText = document.getElementById('statusText');
     const historyTableBody = document.getElementById('historyTableBody');
     const statDays = document.getElementById('statDays');
@@ -566,11 +568,17 @@
     let chart = null;
 
     async function initUser() {
+      if (SUPABASE_URL.includes('INCOLLA_QUI') || SUPABASE_ANON_KEY.includes('INCOLLA_QUI')) {
+        setStatus('Inserisci prima SUPABASE_URL e SUPABASE_ANON_KEY nel file index.html.');
+        return false;
+      }
+
       try {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           console.error('Errore lettura sessione:', sessionError);
-          return;
+          setStatus('Errore lettura sessione Supabase. Controlla console.');
+          return false;
         }
 
         if (!sessionData.session) {
@@ -578,14 +586,16 @@
           if (signInError) {
             console.error('Errore login anonimo:', signInError);
             setStatus('Errore login anonimo Supabase. Controlla URL, chiave e impostazioni Auth.');
-            return;
+            return false;
           }
         }
 
         setStatus('Connessione Supabase inizializzata correttamente.');
+        return true;
       } catch (error) {
         console.error('Errore initUser:', error);
         setStatus('Errore inizializzazione Supabase.');
+        return false;
       }
     }
 
@@ -1079,6 +1089,12 @@
     }
 
     saveBtn.addEventListener('click', saveEntry);
+    testSupabaseBtn.addEventListener('click', async () => {
+      const ok = await initUser();
+      if (ok) {
+        await testInsert();
+      }
+    });
     deleteBtn.addEventListener('click', deleteEntry);
 
     todayBtn.addEventListener('click', () => {
@@ -1117,8 +1133,6 @@
       selectDate(todayString());
       renderAll();
       await initUser();
-      // Quando avrai inserito URL e chiave, togli il commento alla riga sotto per testare l'insert.
-      // await testInsert();
     }
 
     bootstrap();
