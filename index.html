@@ -10,7 +10,7 @@
     :root {
       --bg1: #fff0f6;
       --bg2: #ffe4ef;
-      --card: rgba(255, 255, 255, 0.78);
+      --card: rgba(255, 255, 255, 0.82);
       --text: #6b2146;
       --muted: #9a5b7a;
       --primary: #ff5ca8;
@@ -56,11 +56,10 @@
       line-height: 1.05;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
-      align-items: start;
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
     }
 
     .card {
@@ -76,6 +75,13 @@
       margin-top: 0;
       margin-bottom: 14px;
       font-size: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: start;
     }
 
     .form-group {
@@ -401,24 +407,64 @@
       border-top: 1px solid rgba(255, 92, 168, 0.18);
     }
 
+    .hidden {
+      display: none !important;
+    }
+
+    .auth-shell {
+      min-height: calc(100vh - 48px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+    }
+
+    .auth-subtitle {
+      color: var(--muted);
+      margin-top: -4px;
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .user-pill {
+      background: rgba(255,255,255,0.88);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
     @media (max-width: 640px) {
       .container { padding: 16px; }
       .stats { grid-template-columns: 1fr; }
       .day { min-height: 78px; }
       .day-score { font-size: 20px; }
       th, td { font-size: 13px; }
+      .auth-shell { min-height: calc(100vh - 32px); }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <section class="hero">
-      <h1>Headache Tracker</h1>
-    </section>
-
-    <div class="grid">
-      <aside class="card">
-        <h2>Account</h2>
+    <section id="authView" class="auth-shell">
+      <div class="card auth-card">
+        <h1 style="margin-top:0; margin-bottom: 10px;">Headache Tracker</h1>
+        <p class="auth-subtitle">Accedi o registrati per vedere e salvare i tuoi dati.</p>
 
         <div class="form-group">
           <label for="authEmail">Email</label>
@@ -433,143 +479,161 @@
         <div class="actions">
           <button class="secondary" id="signUpBtn">Registrati</button>
           <button class="primary" id="signInBtn">Accedi</button>
-          <button class="danger" id="signOutBtn">Esci</button>
         </div>
 
         <p class="empty-state" id="authStatusText">Non autenticato</p>
+        <p class="empty-state" id="statusText">Inserisci email e password per iniziare.</p>
+      </div>
+    </section>
 
-        <hr class="divider" />
-
-        <h2>Inserisci o modifica un giorno</h2>
-
-        <div class="form-group">
-          <label for="entryDate">Data</label>
-          <input type="date" id="entryDate" />
-        </div>
-
-        <div class="form-group">
-          <label for="painLevel">Livello mal di testa (0-10)</label>
-          <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
-        </div>
-
-        <div class="form-group">
-          <label>Flag</label>
-          <div class="flags">
-            <label class="flag-toggle">
-              <input type="checkbox" id="medicineFlag" />
-              <span>Medicine</span>
-            </label>
-            <label class="flag-toggle">
-              <input type="checkbox" id="cycleFlag" />
-              <span>Ciclo</span>
-            </label>
-            <label class="flag-toggle">
-              <input type="checkbox" id="auraFlag" />
-              <span>Aura</span>
-            </label>
+    <section id="appView" class="hidden">
+      <section class="hero">
+        <div class="topbar">
+          <div>
+            <h1>Headache Tracker</h1>
+            <p>I tuoi dati sono visibili solo dopo l’accesso.</p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="user-pill" id="userInfoText">Utente autenticato</div>
+            <button class="danger" id="signOutBtn">Esci</button>
           </div>
         </div>
+      </section>
 
-        <div class="form-group">
-          <label for="medicineNotes">Note su Medicine</label>
-          <textarea id="medicineNotes" placeholder="Es. farmaco preso, dose, orario..."></textarea>
-        </div>
+      <div class="grid">
+        <aside class="card">
+          <h2>Inserisci o modifica un giorno</h2>
 
-        <div class="form-group">
-          <label for="auraNotes">Note su Aura</label>
-          <textarea id="auraNotes" placeholder="Es. tipo di aura, durata, sintomi..."></textarea>
-        </div>
+          <div class="form-group">
+            <label for="entryDate">Data</label>
+            <input type="date" id="entryDate" />
+          </div>
 
-        <div class="actions">
-          <button class="primary" id="saveBtn">Salva giorno</button>
-          <button class="secondary" id="todayBtn">Vai a oggi</button>
-          <button class="secondary" id="reloadBtn">Ricarica dati</button>
-          <button class="danger" id="deleteBtn">Elimina giorno</button>
-        </div>
+          <div class="form-group">
+            <label for="painLevel">Livello mal di testa (0-10)</label>
+            <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
+          </div>
 
-        <p class="empty-state" id="statusText">Inizializzazione...</p>
-      </aside>
-
-      <main>
-        <section class="card" style="margin-bottom: 20px;">
-          <div class="stats">
-            <div class="stat">
-              <div class="label">Giorni registrati</div>
-              <div class="value" id="statDays">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Media dolore</div>
-              <div class="value" id="statAvg">0</div>
-            </div>
-            <div class="stat">
-              <div class="label">Ultimo valore</div>
-              <div class="value" id="statLast">-</div>
+          <div class="form-group">
+            <label>Flag</label>
+            <div class="flags">
+              <label class="flag-toggle">
+                <input type="checkbox" id="medicineFlag" />
+                <span>Medicine</span>
+              </label>
+              <label class="flag-toggle">
+                <input type="checkbox" id="cycleFlag" />
+                <span>Ciclo</span>
+              </label>
+              <label class="flag-toggle">
+                <input type="checkbox" id="auraFlag" />
+                <span>Aura</span>
+              </label>
             </div>
           </div>
 
-          <h2 id="chartTitle">Grafico</h2>
-          <canvas id="headacheChart"></canvas>
-          <div class="legend">
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--primary);"></span> Livello mal di testa</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+          <div class="form-group">
+            <label for="medicineNotes">Note su Medicine</label>
+            <textarea id="medicineNotes" placeholder="Es. farmaco preso, dose, orario..."></textarea>
           </div>
-        </section>
 
-        <section class="card" style="margin-bottom: 20px;">
-          <div class="calendar-header">
-            <h2 style="margin:0;">Calendario</h2>
-            <div class="calendar-nav">
-              <button class="secondary" id="prevMonthBtn">◀</button>
-              <button class="secondary" id="nextMonthBtn">▶</button>
+          <div class="form-group">
+            <label for="auraNotes">Note su Aura</label>
+            <textarea id="auraNotes" placeholder="Es. tipo di aura, durata, sintomi..."></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="saveBtn">Salva giorno</button>
+            <button class="secondary" id="todayBtn">Vai a oggi</button>
+            <button class="secondary" id="reloadBtn">Ricarica dati</button>
+            <button class="danger" id="deleteBtn">Elimina giorno</button>
+          </div>
+        </aside>
+
+        <main>
+          <section class="card" style="margin-bottom: 20px;">
+            <div class="stats">
+              <div class="stat">
+                <div class="label">Giorni registrati</div>
+                <div class="value" id="statDays">0</div>
+              </div>
+              <div class="stat">
+                <div class="label">Media dolore</div>
+                <div class="value" id="statAvg">0</div>
+              </div>
+              <div class="stat">
+                <div class="label">Ultimo valore</div>
+                <div class="value" id="statLast">-</div>
+              </div>
             </div>
-          </div>
-          <h3 id="calendarTitle" class="muted" style="margin-top:0;"></h3>
-          <div class="weekday-row">
-            <div class="weekday">Lun</div>
-            <div class="weekday">Mar</div>
-            <div class="weekday">Mer</div>
-            <div class="weekday">Gio</div>
-            <div class="weekday">Ven</div>
-            <div class="weekday">Sab</div>
-            <div class="weekday">Dom</div>
-          </div>
-          <div class="calendar-grid" id="calendarGrid"></div>
-          <div class="legend">
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--today); border: 1px solid rgba(255,92,168,0.25);"></span> Oggi</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
-            <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
-          </div>
-        </section>
 
-        <section class="card">
-          <h2>Storico</h2>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Dolore</th>
-                  <th>Flag / Note</th>
-                </tr>
-              </thead>
-              <tbody id="historyTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
+            <h2 id="chartTitle">Grafico</h2>
+            <canvas id="headacheChart"></canvas>
+            <div class="legend">
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--primary);"></span> Livello mal di testa</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-bottom: 20px;">
+            <div class="calendar-header">
+              <h2 style="margin:0;">Calendario</h2>
+              <div class="calendar-nav">
+                <button class="secondary" id="prevMonthBtn">◀</button>
+                <button class="secondary" id="nextMonthBtn">▶</button>
+              </div>
+            </div>
+            <h3 id="calendarTitle" class="muted" style="margin-top:0;"></h3>
+            <div class="weekday-row">
+              <div class="weekday">Lun</div>
+              <div class="weekday">Mar</div>
+              <div class="weekday">Mer</div>
+              <div class="weekday">Gio</div>
+              <div class="weekday">Ven</div>
+              <div class="weekday">Sab</div>
+              <div class="weekday">Dom</div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+            <div class="legend">
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--today); border: 1px solid rgba(255,92,168,0.25);"></span> Oggi</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Storico</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Dolore</th>
+                    <th>Flag / Note</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </section>
   </div>
 
   <script>
-    const STORAGE_KEY = 'headache-tracker-data-v2';
+    const STORAGE_KEY = 'headache-tracker-data-v3';
 
     const SUPABASE_URL = 'https://gqtcbgwzxzdjjngumxvt.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authView = document.getElementById('authView');
+    const appView = document.getElementById('appView');
 
     const authEmail = document.getElementById('authEmail');
     const authPassword = document.getElementById('authPassword');
@@ -590,6 +654,7 @@
     const reloadBtn = document.getElementById('reloadBtn');
     const statusText = document.getElementById('statusText');
     const authStatusText = document.getElementById('authStatusText');
+    const userInfoText = document.getElementById('userInfoText');
     const historyTableBody = document.getElementById('historyTableBody');
     const statDays = document.getElementById('statDays');
     const statAvg = document.getElementById('statAvg');
@@ -636,10 +701,40 @@
       authStatusText.textContent = message;
     }
 
+    function showAuthView() {
+      authView.classList.remove('hidden');
+      appView.classList.add('hidden');
+    }
+
+    function showAppView() {
+      authView.classList.add('hidden');
+      appView.classList.remove('hidden');
+    }
+
+    function updateUserInfo() {
+      if (currentUser?.email) {
+        userInfoText.textContent = currentUser.email;
+        setAuthStatus(`Autenticato come ${currentUser.email}`);
+      } else {
+        userInfoText.textContent = 'Utente autenticato';
+        setAuthStatus('Non autenticato');
+      }
+    }
+
     function clearLocalTrackerData() {
       data = {};
       saveLocalData();
       renderAll();
+    }
+
+    function resetEntryForm() {
+      entryDate.value = todayString();
+      painLevel.value = '';
+      medicineFlag.checked = false;
+      cycleFlag.checked = false;
+      auraFlag.checked = false;
+      medicineNotes.value = '';
+      auraNotes.value = '';
     }
 
     function getSortedEntries() {
@@ -688,23 +783,17 @@
         if (userError) {
           console.error('Errore getUser:', userError);
           currentUser = null;
-          setAuthStatus('Errore autenticazione');
+          updateUserInfo();
           return null;
         }
 
         currentUser = userData.user || null;
-
-        if (currentUser) {
-          setAuthStatus(`Autenticato come ${currentUser.email}`);
-        } else {
-          setAuthStatus('Non autenticato');
-        }
-
+        updateUserInfo();
         return currentUser;
       } catch (error) {
         console.error('Errore refreshCurrentUser:', error);
         currentUser = null;
-        setAuthStatus('Errore autenticazione');
+        updateUserInfo();
         return null;
       }
     }
@@ -715,28 +804,34 @@
 
         if (sessionError) {
           console.error('Errore lettura sessione:', sessionError);
+          showAuthView();
+          setAuthStatus('Errore autenticazione');
           setStatus('Errore lettura sessione Supabase.');
           return false;
         }
 
         if (!sessionData.session) {
           currentUser = null;
-          setAuthStatus('Non autenticato');
-          setStatus('Registrati o accedi per sincronizzare i dati.');
+          updateUserInfo();
+          showAuthView();
+          setStatus('Accedi o registrati per vedere il tracker.');
           return false;
         }
 
         const user = await refreshCurrentUser();
 
         if (!user) {
+          showAuthView();
           setStatus('Sessione trovata ma utente non disponibile.');
           return false;
         }
 
-        setStatus('Sessione attiva trovata.');
+        showAppView();
+        setStatus('Accesso effettuato.');
         return true;
       } catch (error) {
         console.error('Errore initUser:', error);
+        showAuthView();
         setStatus('Errore inizializzazione Supabase.');
         return false;
       }
@@ -770,16 +865,14 @@
 
         if (signUpData.user && !signUpData.session) {
           setStatus('Registrazione effettuata. Controlla la mail e conferma l’account prima di accedere.');
-        } else {
-          setStatus('Registrazione completata con accesso effettuato.');
+          setAuthStatus('Controlla la tua email');
+          return;
         }
 
         await refreshCurrentUser();
-
-        if (currentUser) {
-          await loadEntriesFromSupabase();
-          renderAll();
-        }
+        showAppView();
+        await loadEntriesFromSupabase();
+        setStatus('Registrazione completata con accesso effettuato.');
       } catch (error) {
         console.error('Errore signUpWithEmail:', error);
         setStatus('Errore durante la registrazione.');
@@ -808,8 +901,8 @@
         }
 
         await refreshCurrentUser();
+        showAppView();
         await loadEntriesFromSupabase();
-        renderAll();
         setStatus('Accesso effettuato con successo.');
       } catch (error) {
         console.error('Errore signInWithEmail:', error);
@@ -829,8 +922,9 @@
 
         currentUser = null;
         clearLocalTrackerData();
-        setAuthStatus('Non autenticato');
-        selectDate(todayString());
+        resetEntryForm();
+        updateUserInfo();
+        showAuthView();
         setStatus('Logout effettuato.');
       } catch (error) {
         console.error('Errore signOutUser:', error);
@@ -875,6 +969,7 @@
         data = freshData;
         saveLocalData();
         renderAll();
+        selectDate(todayString());
         setStatus('Dati caricati da Supabase.');
       } catch (error) {
         console.error('Errore loadEntriesFromSupabase:', error);
@@ -894,7 +989,6 @@
         auraFlag.checked = !!entry.aura;
         medicineNotes.value = entry.medicineNotes || '';
         auraNotes.value = entry.auraNotes || '';
-        setStatus(`Modifica pronta per ${formatDate(dateStr)}.`);
       } else {
         painLevel.value = '';
         medicineFlag.checked = false;
@@ -902,7 +996,6 @@
         auraFlag.checked = false;
         medicineNotes.value = '';
         auraNotes.value = '';
-        setStatus(`Nessun dato per ${formatDate(dateStr)}. Puoi inserirlo ora.`);
       }
 
       renderCalendar();
@@ -910,7 +1003,8 @@
 
     async function saveEntry() {
       if (!currentUser) {
-        setStatus('Devi prima registrarti o accedere.');
+        showAuthView();
+        setStatus('Devi prima effettuare l’accesso.');
         return;
       }
 
@@ -976,6 +1070,7 @@
 
     async function deleteEntry() {
       if (!currentUser) {
+        showAuthView();
         setStatus('Devi prima effettuare l’accesso.');
         return;
       }
@@ -1344,6 +1439,7 @@
 
     reloadBtn.addEventListener('click', async () => {
       if (!currentUser) {
+        showAuthView();
         setStatus('Devi prima effettuare l’accesso.');
         return;
       }
@@ -1383,11 +1479,12 @@
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       currentUser = session?.user || null;
+      updateUserInfo();
 
       if (currentUser) {
-        setAuthStatus(`Autenticato come ${currentUser.email}`);
+        showAppView();
       } else {
-        setAuthStatus('Non autenticato');
+        showAuthView();
       }
     });
 
@@ -1397,12 +1494,12 @@
       currentCalendarDate = new Date();
 
       renderAll();
-      selectDate(todayString());
+      resetEntryForm();
+      showAuthView();
+      await initUser();
 
-      const ok = await initUser();
-      if (ok) {
+      if (currentUser) {
         await loadEntriesFromSupabase();
-        selectDate(todayString());
       }
     }
 
