@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Headache Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg1: #fff0f6;
@@ -453,7 +454,7 @@
           <button class="danger" id="deleteBtn">Elimina giorno</button>
         </div>
 
-        <p class="empty-state" id="statusText">I dati vengono salvati direttamente nel browser e restano disponibili nelle visite successive su questo dispositivo.</p>
+        <p class="empty-state" id="statusText">Per ora i dati restano nel browser. Nel prossimo step li collegherai a Supabase.</p>
       </aside>
 
       <main>
@@ -532,6 +533,12 @@
   <script>
     const STORAGE_KEY = 'headache-tracker-data-v1';
 
+    // INCOLLA QUI i dati del tuo progetto Supabase
+    const SUPABASE_URL = 'https://gqtcbgwzxzdjjngumxvt.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     const entryDate = document.getElementById('entryDate');
     const painLevel = document.getElementById('painLevel');
     const medicineFlag = document.getElementById('medicineFlag');
@@ -557,6 +564,71 @@
     let selectedDate = todayString();
     let currentCalendarDate = new Date();
     let chart = null;
+
+    async function initUser() {
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Errore lettura sessione:', sessionError);
+          return;
+        }
+
+        if (!sessionData.session) {
+          const { error: signInError } = await supabase.auth.signInAnonymously();
+          if (signInError) {
+            console.error('Errore login anonimo:', signInError);
+            setStatus('Errore login anonimo Supabase. Controlla URL, chiave e impostazioni Auth.');
+            return;
+          }
+        }
+
+        setStatus('Connessione Supabase inizializzata correttamente.');
+      } catch (error) {
+        console.error('Errore initUser:', error);
+        setStatus('Errore inizializzazione Supabase.');
+      }
+    }
+
+    async function testInsert() {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.error('Errore recupero utente:', userError);
+          return;
+        }
+
+        const user = userData.user;
+        if (!user) {
+          console.error('Nessun utente autenticato trovato.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('headache_entries')
+          .insert([
+            {
+              user_id: user.id,
+              entry_date: '2026-04-15',
+              pain_level: 5,
+              medicine: false,
+              cycle: false,
+              aura: false,
+              medicine_notes: null,
+              aura_notes: null
+            }
+          ]);
+
+        if (error) {
+          console.error('Errore test insert:', error);
+          setStatus('Connessione Supabase ok, ma insert fallita. Controlla console.');
+        } else {
+          console.log('Inserito!');
+          setStatus('Test insert Supabase riuscito. Controlla la tabella in Supabase.');
+        }
+      } catch (error) {
+        console.error('Errore testInsert:', error);
+      }
+    }
 
     function todayString() {
       const now = new Date();
@@ -1040,9 +1112,16 @@
       renderStats();
     });
 
-    if (!entryDate.value) entryDate.value = todayString();
-    selectDate(todayString());
-    renderAll();
+    async function bootstrap() {
+      if (!entryDate.value) entryDate.value = todayString();
+      selectDate(todayString());
+      renderAll();
+      await initUser();
+      // Quando avrai inserito URL e chiave, togli il commento alla riga sotto per testare l'insert.
+      // await testInsert();
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>
