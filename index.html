@@ -854,7 +854,10 @@
       try {
         const { data: signUpData, error } = await supabaseClient.auth.signUp({
           email,
-          password
+          password,
+          options: {
+            emailRedirectTo: 'https://alessio1840.github.io/headache-tracker/'
+          }
         });
 
         if (error) {
