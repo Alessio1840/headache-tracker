@@ -90,6 +90,8 @@
 
     input[type="date"],
     input[type="number"],
+    input[type="email"],
+    input[type="password"],
     textarea {
       width: 100%;
       padding: 12px 14px;
@@ -109,6 +111,8 @@
 
     input[type="number"]:focus,
     input[type="date"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus,
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(255, 92, 168, 0.12);
@@ -391,6 +395,12 @@
       margin-top: 8px;
     }
 
+    .divider {
+      margin: 22px 0;
+      border: none;
+      border-top: 1px solid rgba(255, 92, 168, 0.18);
+    }
+
     @media (max-width: 640px) {
       .container { padding: 16px; }
       .stats { grid-template-columns: 1fr; }
@@ -408,6 +418,28 @@
 
     <div class="grid">
       <aside class="card">
+        <h2>Account</h2>
+
+        <div class="form-group">
+          <label for="authEmail">Email</label>
+          <input type="email" id="authEmail" placeholder="La tua email" />
+        </div>
+
+        <div class="form-group">
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" placeholder="La tua password" />
+        </div>
+
+        <div class="actions">
+          <button class="secondary" id="signUpBtn">Registrati</button>
+          <button class="primary" id="signInBtn">Accedi</button>
+          <button class="danger" id="signOutBtn">Esci</button>
+        </div>
+
+        <p class="empty-state" id="authStatusText">Non autenticato</p>
+
+        <hr class="divider" />
+
         <h2>Inserisci o modifica un giorno</h2>
 
         <div class="form-group">
@@ -451,7 +483,7 @@
         <div class="actions">
           <button class="primary" id="saveBtn">Salva giorno</button>
           <button class="secondary" id="todayBtn">Vai a oggi</button>
-          <button class="secondary" id="testSupabaseBtn">Test Supabase</button>
+          <button class="secondary" id="reloadBtn">Ricarica dati</button>
           <button class="danger" id="deleteBtn">Elimina giorno</button>
         </div>
 
@@ -532,12 +564,18 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'headache-tracker-data-v1';
+    const STORAGE_KEY = 'headache-tracker-data-v2';
 
     const SUPABASE_URL = 'https://gqtcbgwzxzdjjngumxvt.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    const signUpBtn = document.getElementById('signUpBtn');
+    const signInBtn = document.getElementById('signInBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
 
     const entryDate = document.getElementById('entryDate');
     const painLevel = document.getElementById('painLevel');
@@ -549,8 +587,9 @@
     const saveBtn = document.getElementById('saveBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const todayBtn = document.getElementById('todayBtn');
-    const testSupabaseBtn = document.getElementById('testSupabaseBtn');
+    const reloadBtn = document.getElementById('reloadBtn');
     const statusText = document.getElementById('statusText');
+    const authStatusText = document.getElementById('authStatusText');
     const historyTableBody = document.getElementById('historyTableBody');
     const statDays = document.getElementById('statDays');
     const statAvg = document.getElementById('statAvg');
@@ -593,6 +632,16 @@
       statusText.textContent = message;
     }
 
+    function setAuthStatus(message) {
+      authStatusText.textContent = message;
+    }
+
+    function clearLocalTrackerData() {
+      data = {};
+      saveLocalData();
+      renderAll();
+    }
+
     function getSortedEntries() {
       return Object.entries(data)
         .map(([date, value]) => ({ date, ...value }))
@@ -623,6 +672,43 @@
       });
     }
 
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    async function refreshCurrentUser() {
+      try {
+        const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+
+        if (userError) {
+          console.error('Errore getUser:', userError);
+          currentUser = null;
+          setAuthStatus('Errore autenticazione');
+          return null;
+        }
+
+        currentUser = userData.user || null;
+
+        if (currentUser) {
+          setAuthStatus(`Autenticato come ${currentUser.email}`);
+        } else {
+          setAuthStatus('Non autenticato');
+        }
+
+        return currentUser;
+      } catch (error) {
+        console.error('Errore refreshCurrentUser:', error);
+        currentUser = null;
+        setAuthStatus('Errore autenticazione');
+        return null;
+      }
+    }
+
     async function initUser() {
       try {
         const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
@@ -634,29 +720,20 @@
         }
 
         if (!sessionData.session) {
-          const { error: signInError } = await supabaseClient.auth.signInAnonymously();
-          if (signInError) {
-            console.error('Errore login anonimo:', signInError);
-            setStatus('Errore login anonimo. Controlla Auth su Supabase.');
-            return false;
-          }
-        }
-
-        const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-        if (userError) {
-          console.error('Errore recupero utente:', userError);
-          setStatus('Errore recupero utente Supabase.');
+          currentUser = null;
+          setAuthStatus('Non autenticato');
+          setStatus('Registrati o accedi per sincronizzare i dati.');
           return false;
         }
 
-        currentUser = userData.user;
+        const user = await refreshCurrentUser();
 
-        if (!currentUser) {
-          setStatus('Nessun utente autenticato disponibile.');
+        if (!user) {
+          setStatus('Sessione trovata ma utente non disponibile.');
           return false;
         }
 
-        setStatus('Supabase connesso correttamente.');
+        setStatus('Sessione attiva trovata.');
         return true;
       } catch (error) {
         console.error('Errore initUser:', error);
@@ -665,8 +742,107 @@
       }
     }
 
+    async function signUpWithEmail() {
+      const email = authEmail.value.trim();
+      const password = authPassword.value;
+
+      if (!email || !password) {
+        setStatus('Inserisci email e password.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setStatus('La password deve avere almeno 6 caratteri.');
+        return;
+      }
+
+      try {
+        const { data: signUpData, error } = await supabaseClient.auth.signUp({
+          email,
+          password
+        });
+
+        if (error) {
+          console.error('Errore registrazione:', error);
+          setStatus(`Registrazione fallita: ${error.message}`);
+          return;
+        }
+
+        if (signUpData.user && !signUpData.session) {
+          setStatus('Registrazione effettuata. Controlla la mail e conferma l’account prima di accedere.');
+        } else {
+          setStatus('Registrazione completata con accesso effettuato.');
+        }
+
+        await refreshCurrentUser();
+
+        if (currentUser) {
+          await loadEntriesFromSupabase();
+          renderAll();
+        }
+      } catch (error) {
+        console.error('Errore signUpWithEmail:', error);
+        setStatus('Errore durante la registrazione.');
+      }
+    }
+
+    async function signInWithEmail() {
+      const email = authEmail.value.trim();
+      const password = authPassword.value;
+
+      if (!email || !password) {
+        setStatus('Inserisci email e password.');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          console.error('Errore login:', error);
+          setStatus(`Accesso fallito: ${error.message}`);
+          return;
+        }
+
+        await refreshCurrentUser();
+        await loadEntriesFromSupabase();
+        renderAll();
+        setStatus('Accesso effettuato con successo.');
+      } catch (error) {
+        console.error('Errore signInWithEmail:', error);
+        setStatus('Errore durante il login.');
+      }
+    }
+
+    async function signOutUser() {
+      try {
+        const { error } = await supabaseClient.auth.signOut();
+
+        if (error) {
+          console.error('Errore logout:', error);
+          setStatus(`Logout fallito: ${error.message}`);
+          return;
+        }
+
+        currentUser = null;
+        clearLocalTrackerData();
+        setAuthStatus('Non autenticato');
+        selectDate(todayString());
+        setStatus('Logout effettuato.');
+      } catch (error) {
+        console.error('Errore signOutUser:', error);
+        setStatus('Errore durante il logout.');
+      }
+    }
+
     async function loadEntriesFromSupabase() {
-      if (!currentUser) return;
+      if (!currentUser) {
+        setStatus('Devi prima effettuare l’accesso.');
+        return;
+      }
 
       try {
         const { data: rows, error } = await supabaseClient
@@ -684,7 +860,8 @@
         const freshData = {};
 
         for (const row of rows || []) {
-          freshData[row.entry_date] = {
+          const key = row.entry_date;
+          freshData[key] = {
             level: row.pain_level ?? 0,
             medicine: !!row.medicine,
             cycle: !!row.cycle,
@@ -702,46 +879,6 @@
       } catch (error) {
         console.error('Errore loadEntriesFromSupabase:', error);
         setStatus('Errore durante il caricamento da Supabase.');
-      }
-    }
-
-    async function testInsert() {
-      if (!currentUser) {
-        setStatus('Utente non inizializzato.');
-        return;
-      }
-
-      try {
-        const { data: insertedData, error } = await supabaseClient
-          .from('headache_entries')
-          .upsert([
-            {
-              user_id: currentUser.id,
-              entry_date: '2026-04-15',
-              pain_level: 5,
-              medicine: false,
-              cycle: false,
-              aura: false,
-              medicine_notes: null,
-              aura_notes: null
-            }
-          ], {
-            onConflict: 'user_id,entry_date'
-          })
-          .select();
-
-        if (error) {
-          console.error('Errore test insert:', error);
-          setStatus('Test insert fallito. Controlla console e policy Supabase.');
-          return;
-        }
-
-        console.log('Test insert riuscito:', insertedData);
-        await loadEntriesFromSupabase();
-        setStatus('Test insert riuscito.');
-      } catch (error) {
-        console.error('Errore testInsert:', error);
-        setStatus('Errore durante il test insert.');
       }
     }
 
@@ -772,6 +909,11 @@
     }
 
     async function saveEntry() {
+      if (!currentUser) {
+        setStatus('Devi prima registrarti o accedere.');
+        return;
+      }
+
       const date = entryDate.value;
       const level = Number(painLevel.value);
 
@@ -801,11 +943,6 @@
       selectDate(date);
       setStatus(`Salvataggio in corso per ${formatDate(date)}...`);
 
-      if (!currentUser) {
-        setStatus('Utente Supabase non disponibile.');
-        return;
-      }
-
       try {
         const { error } = await supabaseClient
           .from('headache_entries')
@@ -826,7 +963,7 @@
 
         if (error) {
           console.error('Errore saveEntry:', error);
-          setStatus('Dato salvato in locale, ma errore salvataggio su Supabase.');
+          setStatus('Errore salvataggio su Supabase.');
           return;
         }
 
@@ -838,6 +975,11 @@
     }
 
     async function deleteEntry() {
+      if (!currentUser) {
+        setStatus('Devi prima effettuare l’accesso.');
+        return;
+      }
+
       const date = entryDate.value;
 
       if (!date) {
@@ -856,11 +998,6 @@
       selectDate(date);
       setStatus(`Eliminazione in corso per ${formatDate(date)}...`);
 
-      if (!currentUser) {
-        setStatus('Dato eliminato in locale, ma utente Supabase non disponibile.');
-        return;
-      }
-
       try {
         const { error } = await supabaseClient
           .from('headache_entries')
@@ -870,7 +1007,7 @@
 
         if (error) {
           console.error('Errore deleteEntry:', error);
-          setStatus('Dato eliminato in locale, ma errore eliminazione su Supabase.');
+          setStatus('Errore eliminazione su Supabase.');
           return;
         }
 
@@ -894,15 +1031,6 @@
       const avg = entries.reduce((sum, e) => sum + e.level, 0) / entries.length;
       statAvg.textContent = avg.toFixed(1);
       statLast.textContent = entries[entries.length - 1].level;
-    }
-
-    function escapeHtml(text) {
-      return String(text)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
     }
 
     function renderHistory() {
@@ -1208,17 +1336,19 @@
       renderCalendar();
     }
 
+    signUpBtn.addEventListener('click', signUpWithEmail);
+    signInBtn.addEventListener('click', signInWithEmail);
+    signOutBtn.addEventListener('click', signOutUser);
     saveBtn.addEventListener('click', saveEntry);
-
-    testSupabaseBtn.addEventListener('click', async () => {
-      setStatus('Test Supabase in corso...');
-      const ok = await initUser();
-      if (ok) {
-        await testInsert();
-      }
-    });
-
     deleteBtn.addEventListener('click', deleteEntry);
+
+    reloadBtn.addEventListener('click', async () => {
+      if (!currentUser) {
+        setStatus('Devi prima effettuare l’accesso.');
+        return;
+      }
+      await loadEntriesFromSupabase();
+    });
 
     todayBtn.addEventListener('click', () => {
       currentCalendarDate = new Date();
@@ -1249,6 +1379,16 @@
       renderCalendar();
       renderChart();
       renderStats();
+    });
+
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      currentUser = session?.user || null;
+
+      if (currentUser) {
+        setAuthStatus(`Autenticato come ${currentUser.email}`);
+      } else {
+        setAuthStatus('Non autenticato');
+      }
     });
 
     async function bootstrap() {
