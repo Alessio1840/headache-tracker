@@ -455,7 +455,7 @@
           <button class="danger" id="deleteBtn">Elimina giorno</button>
         </div>
 
-        <p class="empty-state" id="statusText">Per ora i dati restano nel browser. Nel prossimo step li collegherai a Supabase.</p>
+        <p class="empty-state" id="statusText">Inizializzazione...</p>
       </aside>
 
       <main>
@@ -534,11 +534,10 @@
   <script>
     const STORAGE_KEY = 'headache-tracker-data-v1';
 
-    // INCOLLA QUI i dati del tuo progetto Supabase
     const SUPABASE_URL = 'https://gqtcbgwzxzdjjngumxvt.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const entryDate = document.getElementById('entryDate');
     const painLevel = document.getElementById('painLevel');
@@ -562,83 +561,11 @@
     const nextMonthBtn = document.getElementById('nextMonthBtn');
     const chartTitle = document.getElementById('chartTitle');
 
-    let data = loadData();
+    let data = loadLocalData();
     let selectedDate = todayString();
     let currentCalendarDate = new Date();
     let chart = null;
-
-    async function initUser() {
-      if (SUPABASE_URL.includes('INCOLLA_QUI') || SUPABASE_ANON_KEY.includes('INCOLLA_QUI')) {
-        setStatus('Inserisci prima SUPABASE_URL e SUPABASE_ANON_KEY nel file index.html.');
-        return false;
-      }
-
-      try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          console.error('Errore lettura sessione:', sessionError);
-          setStatus('Errore lettura sessione Supabase. Controlla console.');
-          return false;
-        }
-
-        if (!sessionData.session) {
-          const { error: signInError } = await supabase.auth.signInAnonymously();
-          if (signInError) {
-            console.error('Errore login anonimo:', signInError);
-            setStatus('Errore login anonimo Supabase. Controlla URL, chiave e impostazioni Auth.');
-            return false;
-          }
-        }
-
-        setStatus('Connessione Supabase inizializzata correttamente.');
-        return true;
-      } catch (error) {
-        console.error('Errore initUser:', error);
-        setStatus('Errore inizializzazione Supabase.');
-        return false;
-      }
-    }
-
-    async function testInsert() {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.error('Errore recupero utente:', userError);
-          return;
-        }
-
-        const user = userData.user;
-        if (!user) {
-          console.error('Nessun utente autenticato trovato.');
-          return;
-        }
-
-        const { error } = await supabase
-          .from('headache_entries')
-          .insert([
-            {
-              user_id: user.id,
-              entry_date: '2026-04-15',
-              pain_level: 5,
-              medicine: false,
-              cycle: false,
-              aura: false,
-              medicine_notes: null,
-              aura_notes: null
-            }
-          ]);
-
-        if (error) {
-          console.error('Errore test insert:', error);
-          setStatus('Connessione Supabase ok, ma insert fallita. Controlla console.');
-        } else {
-          console.log('Inserito!');
-          setStatus('Test insert Supabase riuscito. Controlla la tabella in Supabase.');
-        }
-      } catch (error) {
-        console.error('Errore testInsert:', error);
-      }
-    }
+    let currentUser = null;
 
     function todayString() {
       const now = new Date();
@@ -648,7 +575,7 @@
       return `${y}-${m}-${d}`;
     }
 
-    function loadData() {
+    function loadLocalData() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         const parsed = raw ? JSON.parse(raw) : {};
@@ -658,7 +585,7 @@
       }
     }
 
-    function saveData() {
+    function saveLocalData() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
 
@@ -690,9 +617,132 @@
       const month = currentCalendarDate.getMonth();
 
       return getSortedEntries().filter((entry) => {
-        const d = new Date(entry.date);
+        const parts = entry.date.split('-').map(Number);
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
         return d.getFullYear() === year && d.getMonth() === month;
       });
+    }
+
+    async function initUser() {
+      try {
+        const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+
+        if (sessionError) {
+          console.error('Errore lettura sessione:', sessionError);
+          setStatus('Errore lettura sessione Supabase.');
+          return false;
+        }
+
+        if (!sessionData.session) {
+          const { error: signInError } = await supabaseClient.auth.signInAnonymously();
+          if (signInError) {
+            console.error('Errore login anonimo:', signInError);
+            setStatus('Errore login anonimo. Controlla Auth su Supabase.');
+            return false;
+          }
+        }
+
+        const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+        if (userError) {
+          console.error('Errore recupero utente:', userError);
+          setStatus('Errore recupero utente Supabase.');
+          return false;
+        }
+
+        currentUser = userData.user;
+
+        if (!currentUser) {
+          setStatus('Nessun utente autenticato disponibile.');
+          return false;
+        }
+
+        setStatus('Supabase connesso correttamente.');
+        return true;
+      } catch (error) {
+        console.error('Errore initUser:', error);
+        setStatus('Errore inizializzazione Supabase.');
+        return false;
+      }
+    }
+
+    async function loadEntriesFromSupabase() {
+      if (!currentUser) return;
+
+      try {
+        const { data: rows, error } = await supabaseClient
+          .from('headache_entries')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('entry_date', { ascending: true });
+
+        if (error) {
+          console.error('Errore lettura entries:', error);
+          setStatus('Errore caricamento dati da Supabase.');
+          return;
+        }
+
+        const freshData = {};
+
+        for (const row of rows || []) {
+          freshData[row.entry_date] = {
+            level: row.pain_level ?? 0,
+            medicine: !!row.medicine,
+            cycle: !!row.cycle,
+            aura: !!row.aura,
+            medicineNotes: row.medicine_notes || '',
+            auraNotes: row.aura_notes || '',
+            updatedAt: row.updated_at || null
+          };
+        }
+
+        data = freshData;
+        saveLocalData();
+        renderAll();
+        setStatus('Dati caricati da Supabase.');
+      } catch (error) {
+        console.error('Errore loadEntriesFromSupabase:', error);
+        setStatus('Errore durante il caricamento da Supabase.');
+      }
+    }
+
+    async function testInsert() {
+      if (!currentUser) {
+        setStatus('Utente non inizializzato.');
+        return;
+      }
+
+      try {
+        const { data: insertedData, error } = await supabaseClient
+          .from('headache_entries')
+          .upsert([
+            {
+              user_id: currentUser.id,
+              entry_date: '2026-04-15',
+              pain_level: 5,
+              medicine: false,
+              cycle: false,
+              aura: false,
+              medicine_notes: null,
+              aura_notes: null
+            }
+          ], {
+            onConflict: 'user_id,entry_date'
+          })
+          .select();
+
+        if (error) {
+          console.error('Errore test insert:', error);
+          setStatus('Test insert fallito. Controlla console e policy Supabase.');
+          return;
+        }
+
+        console.log('Test insert riuscito:', insertedData);
+        await loadEntriesFromSupabase();
+        setStatus('Test insert riuscito.');
+      } catch (error) {
+        console.error('Errore testInsert:', error);
+        setStatus('Errore durante il test insert.');
+      }
     }
 
     function selectDate(dateStr) {
@@ -721,7 +771,7 @@
       renderCalendar();
     }
 
-    function saveEntry() {
+    async function saveEntry() {
       const date = entryDate.value;
       const level = Number(painLevel.value);
 
@@ -735,7 +785,7 @@
         return;
       }
 
-      data[date] = {
+      const entryPayload = {
         level,
         medicine: medicineFlag.checked,
         cycle: cycleFlag.checked,
@@ -745,13 +795,49 @@
         updatedAt: new Date().toISOString()
       };
 
-      saveData();
-      selectDate(date);
+      data[date] = entryPayload;
+      saveLocalData();
       renderAll();
-      setStatus(`Dato salvato per ${formatDate(date)}.`);
+      selectDate(date);
+      setStatus(`Salvataggio in corso per ${formatDate(date)}...`);
+
+      if (!currentUser) {
+        setStatus('Utente Supabase non disponibile.');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient
+          .from('headache_entries')
+          .upsert([
+            {
+              user_id: currentUser.id,
+              entry_date: date,
+              pain_level: entryPayload.level,
+              medicine: entryPayload.medicine,
+              cycle: entryPayload.cycle,
+              aura: entryPayload.aura,
+              medicine_notes: entryPayload.medicineNotes || null,
+              aura_notes: entryPayload.auraNotes || null
+            }
+          ], {
+            onConflict: 'user_id,entry_date'
+          });
+
+        if (error) {
+          console.error('Errore saveEntry:', error);
+          setStatus('Dato salvato in locale, ma errore salvataggio su Supabase.');
+          return;
+        }
+
+        setStatus(`Dato salvato su Supabase per ${formatDate(date)}.`);
+      } catch (error) {
+        console.error('Errore saveEntry catch:', error);
+        setStatus('Errore salvataggio su Supabase.');
+      }
     }
 
-    function deleteEntry() {
+    async function deleteEntry() {
       const date = entryDate.value;
 
       if (!date) {
@@ -759,14 +845,39 @@
         return;
       }
 
-      if (data[date]) {
-        delete data[date];
-        saveData();
-        renderAll();
-        selectDate(date);
-        setStatus(`Dato eliminato per ${formatDate(date)}.`);
-      } else {
+      if (!data[date]) {
         setStatus('Per questa data non ci sono dati da eliminare.');
+        return;
+      }
+
+      delete data[date];
+      saveLocalData();
+      renderAll();
+      selectDate(date);
+      setStatus(`Eliminazione in corso per ${formatDate(date)}...`);
+
+      if (!currentUser) {
+        setStatus('Dato eliminato in locale, ma utente Supabase non disponibile.');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient
+          .from('headache_entries')
+          .delete()
+          .eq('user_id', currentUser.id)
+          .eq('entry_date', date);
+
+        if (error) {
+          console.error('Errore deleteEntry:', error);
+          setStatus('Dato eliminato in locale, ma errore eliminazione su Supabase.');
+          return;
+        }
+
+        setStatus(`Dato eliminato da Supabase per ${formatDate(date)}.`);
+      } catch (error) {
+        console.error('Errore deleteEntry catch:', error);
+        setStatus('Errore eliminazione su Supabase.');
       }
     }
 
@@ -783,6 +894,15 @@
       const avg = entries.reduce((sum, e) => sum + e.level, 0) / entries.length;
       statAvg.textContent = avg.toFixed(1);
       statLast.textContent = entries[entries.length - 1].level;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
     }
 
     function renderHistory() {
@@ -803,8 +923,8 @@
         if (entry.medicine) flags.push('<span class="badge medicine">Medicine</span>');
         if (entry.cycle) flags.push('<span class="badge cycle">Ciclo</span>');
         if (entry.aura) flags.push('<span class="badge aura">Aura</span>');
-        if (entry.medicineNotes) flags.push(`<div class="muted"><strong>Note Medicine:</strong> ${entry.medicineNotes}</div>`);
-        if (entry.auraNotes) flags.push(`<div class="muted"><strong>Note Aura:</strong> ${entry.auraNotes}</div>`);
+        if (entry.medicineNotes) flags.push(`<div class="muted"><strong>Note Medicine:</strong> ${escapeHtml(entry.medicineNotes)}</div>`);
+        if (entry.auraNotes) flags.push(`<div class="muted"><strong>Note Aura:</strong> ${escapeHtml(entry.auraNotes)}</div>`);
         if (!flags.length) flags.push('<span class="muted">-</span>');
 
         const tr = document.createElement('tr');
@@ -874,8 +994,8 @@
 
       const entryMap = new Map();
       for (const entry of entries) {
-        const d = new Date(entry.date);
-        entryMap.set(d.getDate(), entry);
+        const parts = entry.date.split('-').map(Number);
+        entryMap.set(parts[2], entry);
       }
 
       const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -1089,12 +1209,15 @@
     }
 
     saveBtn.addEventListener('click', saveEntry);
+
     testSupabaseBtn.addEventListener('click', async () => {
+      setStatus('Test Supabase in corso...');
       const ok = await initUser();
       if (ok) {
         await testInsert();
       }
     });
+
     deleteBtn.addEventListener('click', deleteEntry);
 
     todayBtn.addEventListener('click', () => {
@@ -1129,10 +1252,18 @@
     });
 
     async function bootstrap() {
-      if (!entryDate.value) entryDate.value = todayString();
-      selectDate(todayString());
+      entryDate.value = todayString();
+      selectedDate = todayString();
+      currentCalendarDate = new Date();
+
       renderAll();
-      await initUser();
+      selectDate(todayString());
+
+      const ok = await initUser();
+      if (ok) {
+        await loadEntriesFromSupabase();
+        selectDate(todayString());
+      }
     }
 
     bootstrap();
