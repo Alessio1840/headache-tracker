@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Headache Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg1: #fff0f6;
+      --bg2: #ffe4ef;
+      --card: rgba(255, 255, 255, 0.78);
+      --text: #6b2146;
+      --muted: #9a5b7a;
+      --primary: #ff5ca8;
+      --primary-dark: #e34090;
+      --danger: #ff6b8a;
+      --border: rgba(255, 92, 168, 0.20);
+      --shadow: 0 12px 30px rgba(227, 64, 144, 0.15);
+      --medicine: #ff9f1c;
+      --cycle: #ff3b6b;
+      --aura: #c77dff;
+      --today: #ffd6e7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      margin-bottom: 20px;
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.86), rgba(255,240,246,0.96));
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.05;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-weight: 600;
+    }
+
+    input[type="date"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.95);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    input[type="number"]:focus,
+    input[type="date"]:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 92, 168, 0.12);
+    }
+
+    .flags {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .flag-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.85);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+
+    .flag-toggle:hover {
+      transform: translateY(-1px);
+    }
+
+    .flag-toggle input {
+      accent-color: var(--primary);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.88);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .danger {
+      background: linear-gradient(135deg, #ff95ae, var(--danger));
+      color: white;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.78);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .stat .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 10px;
+    }
+
+    .calendar-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .calendar-nav button {
+      padding: 10px 12px;
+      border-radius: 12px;
+    }
+
+    .weekday-row,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .weekday {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 6px 0;
+    }
+
+    .day {
+      min-height: 96px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.7);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .day:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(227, 64, 144, 0.10);
+    }
+
+    .day.other-month {
+      opacity: 0.45;
+    }
+
+    .day.today {
+      background: var(--today);
+      border-color: rgba(255, 92, 168, 0.35);
+    }
+
+    .day.selected {
+      outline: 3px solid rgba(255, 92, 168, 0.25);
+    }
+
+    .day-number {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .day-score {
+      margin-top: auto;
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .dots {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      min-height: 10px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .dot.medicine { background: var(--medicine); }
+    .dot.cycle { background: var(--cycle); }
+    .dot.aura { background: var(--aura); }
+
+    .legend {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+    }
+
+    canvas {
+      width: 100% !important;
+      max-height: 360px;
+    }
+
+    .table-wrap {
+      margin-top: 14px;
+      max-height: 320px;
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255,255,255,0.82);
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 92, 168, 0.12);
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #fff6fa;
+      z-index: 1;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    .badge.medicine {
+      background: rgba(255, 159, 28, 0.16);
+      color: #b86900;
+    }
+
+    .badge.cycle {
+      background: rgba(255, 59, 107, 0.16);
+      color: #b21f4b;
+    }
+
+    .badge.aura {
+      background: rgba(199, 125, 255, 0.15);
+      color: #7f39c9;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .empty-state {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .container { padding: 16px; }
+      .stats { grid-template-columns: 1fr; }
+      .day { min-height: 78px; }
+      .day-score { font-size: 20px; }
+      th, td { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>Headache Tracker</h1>
+    </section>
+
+    <div class="grid">
+      <aside class="card">
+        <h2>Inserisci o modifica un giorno</h2>
+
+        <div class="form-group">
+          <label for="entryDate">Data</label>
+          <input type="date" id="entryDate" />
+        </div>
+
+        <div class="form-group">
+          <label for="painLevel">Livello mal di testa (0-10)</label>
+          <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
+        </div>
+
+        <div class="form-group">
+          <label>Flag</label>
+          <div class="flags">
+            <label class="flag-toggle">
+              <input type="checkbox" id="medicineFlag" />
+              <span>Medicine</span>
+            </label>
+            <label class="flag-toggle">
+              <input type="checkbox" id="cycleFlag" />
+              <span>Ciclo</span>
+            </label>
+            <label class="flag-toggle">
+              <input type="checkbox" id="auraFlag" />
+              <span>Aura</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="medicineNotes">Note su Medicine</label>
+          <textarea id="medicineNotes" placeholder="Es. farmaco preso, dose, orario..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="auraNotes">Note su Aura</label>
+          <textarea id="auraNotes" placeholder="Es. tipo di aura, durata, sintomi..."></textarea>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="saveBtn">Salva giorno</button>
+          <button class="secondary" id="todayBtn">Vai a oggi</button>
+          <button class="danger" id="deleteBtn">Elimina giorno</button>
+        </div>
+
+        <p class="empty-state" id="statusText">I dati vengono salvati direttamente nel browser e restano disponibili nelle visite successive su questo dispositivo.</p>
+      </aside>
+
+      <main>
+        <section class="card" style="margin-bottom: 20px;">
+          <div class="stats">
+            <div class="stat">
+              <div class="label">Giorni registrati</div>
+              <div class="value" id="statDays">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Media dolore</div>
+              <div class="value" id="statAvg">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Ultimo valore</div>
+              <div class="value" id="statLast">-</div>
+            </div>
+          </div>
+
+          <h2 id="chartTitle">Grafico</h2>
+          <canvas id="headacheChart"></canvas>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--primary);"></span> Livello mal di testa</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+          </div>
+        </section>
+
+        <section class="card" style="margin-bottom: 20px;">
+          <div class="calendar-header">
+            <h2 style="margin:0;">Calendario</h2>
+            <div class="calendar-nav">
+              <button class="secondary" id="prevMonthBtn">◀</button>
+              <button class="secondary" id="nextMonthBtn">▶</button>
+            </div>
+          </div>
+          <h3 id="calendarTitle" class="muted" style="margin-top:0;"></h3>
+          <div class="weekday-row">
+            <div class="weekday">Lun</div>
+            <div class="weekday">Mar</div>
+            <div class="weekday">Mer</div>
+            <div class="weekday">Gio</div>
+            <div class="weekday">Ven</div>
+            <div class="weekday">Sab</div>
+            <div class="weekday">Dom</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+          <div class="legend">
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--today); border: 1px solid rgba(255,92,168,0.25);"></span> Oggi</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
+            <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Storico</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Dolore</th>
+                  <th>Flag / Note</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'headache-tracker-data-v1';
+
+    const entryDate = document.getElementById('entryDate');
+    const painLevel = document.getElementById('painLevel');
+    const medicineFlag = document.getElementById('medicineFlag');
+    const cycleFlag = document.getElementById('cycleFlag');
+    const auraFlag = document.getElementById('auraFlag');
+    const medicineNotes = document.getElementById('medicineNotes');
+    const auraNotes = document.getElementById('auraNotes');
+    const saveBtn = document.getElementById('saveBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const todayBtn = document.getElementById('todayBtn');
+    const statusText = document.getElementById('statusText');
+    const historyTableBody = document.getElementById('historyTableBody');
+    const statDays = document.getElementById('statDays');
+    const statAvg = document.getElementById('statAvg');
+    const statLast = document.getElementById('statLast');
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarTitle = document.getElementById('calendarTitle');
+    const prevMonthBtn = document.getElementById('prevMonthBtn');
+    const nextMonthBtn = document.getElementById('nextMonthBtn');
+    const chartTitle = document.getElementById('chartTitle');
+
+    let data = loadData();
+    let selectedDate = todayString();
+    let currentCalendarDate = new Date();
+    let chart = null;
+
+    function todayString() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function setStatus(message) {
+      statusText.textContent = message;
+    }
+
+    function getSortedEntries() {
+      return Object.entries(data)
+        .map(([date, value]) => ({ date, ...value }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function monthName(dateObj) {
+      return dateObj.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function getEntriesForCurrentMonth() {
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+
+      return getSortedEntries().filter((entry) => {
+        const d = new Date(entry.date);
+        return d.getFullYear() === year && d.getMonth() === month;
+      });
+    }
+
+    function selectDate(dateStr) {
+      selectedDate = dateStr;
+      entryDate.value = dateStr;
+      const entry = data[dateStr];
+
+      if (entry) {
+        painLevel.value = entry.level;
+        medicineFlag.checked = !!entry.medicine;
+        cycleFlag.checked = !!entry.cycle;
+        auraFlag.checked = !!entry.aura;
+        medicineNotes.value = entry.medicineNotes || '';
+        auraNotes.value = entry.auraNotes || '';
+        setStatus(`Modifica pronta per ${formatDate(dateStr)}.`);
+      } else {
+        painLevel.value = '';
+        medicineFlag.checked = false;
+        cycleFlag.checked = false;
+        auraFlag.checked = false;
+        medicineNotes.value = '';
+        auraNotes.value = '';
+        setStatus(`Nessun dato per ${formatDate(dateStr)}. Puoi inserirlo ora.`);
+      }
+
+      renderCalendar();
+    }
+
+    function saveEntry() {
+      const date = entryDate.value;
+      const level = Number(painLevel.value);
+
+      if (!date) {
+        setStatus('Seleziona una data.');
+        return;
+      }
+
+      if (!Number.isInteger(level) || level < 0 || level > 10) {
+        setStatus('Inserisci un valore intero tra 0 e 10.');
+        return;
+      }
+
+      data[date] = {
+        level,
+        medicine: medicineFlag.checked,
+        cycle: cycleFlag.checked,
+        aura: auraFlag.checked,
+        medicineNotes: medicineNotes.value.trim(),
+        auraNotes: auraNotes.value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      saveData();
+      selectDate(date);
+      renderAll();
+      setStatus(`Dato salvato per ${formatDate(date)}.`);
+    }
+
+    function deleteEntry() {
+      const date = entryDate.value;
+
+      if (!date) {
+        setStatus('Seleziona una data da eliminare.');
+        return;
+      }
+
+      if (data[date]) {
+        delete data[date];
+        saveData();
+        renderAll();
+        selectDate(date);
+        setStatus(`Dato eliminato per ${formatDate(date)}.`);
+      } else {
+        setStatus('Per questa data non ci sono dati da eliminare.');
+      }
+    }
+
+    function renderStats() {
+      const entries = getEntriesForCurrentMonth();
+      statDays.textContent = entries.length;
+
+      if (!entries.length) {
+        statAvg.textContent = '0';
+        statLast.textContent = '-';
+        return;
+      }
+
+      const avg = entries.reduce((sum, e) => sum + e.level, 0) / entries.length;
+      statAvg.textContent = avg.toFixed(1);
+      statLast.textContent = entries[entries.length - 1].level;
+    }
+
+    function renderHistory() {
+      const entries = getSortedEntries().slice().reverse();
+      historyTableBody.innerHTML = '';
+
+      if (!entries.length) {
+        historyTableBody.innerHTML = `
+          <tr>
+            <td colspan="3" class="muted">Ancora nessun dato salvato.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      for (const entry of entries) {
+        const flags = [];
+        if (entry.medicine) flags.push('<span class="badge medicine">Medicine</span>');
+        if (entry.cycle) flags.push('<span class="badge cycle">Ciclo</span>');
+        if (entry.aura) flags.push('<span class="badge aura">Aura</span>');
+        if (entry.medicineNotes) flags.push(`<div class="muted"><strong>Note Medicine:</strong> ${entry.medicineNotes}</div>`);
+        if (entry.auraNotes) flags.push(`<div class="muted"><strong>Note Aura:</strong> ${entry.auraNotes}</div>`);
+        if (!flags.length) flags.push('<span class="muted">-</span>');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatDate(entry.date)}</td>
+          <td><strong>${entry.level}</strong></td>
+          <td>${flags.join('')}</td>
+        `;
+        tr.addEventListener('click', () => selectDate(entry.date));
+        historyTableBody.appendChild(tr);
+      }
+    }
+
+    function buildHeadacheSeries(labels, entryMap) {
+      return labels.map((day) => {
+        const directEntry = entryMap.get(day);
+        if (directEntry) return directEntry.level;
+
+        let prevDay = null;
+        let nextDay = null;
+
+        for (let d = day - 1; d >= 1; d--) {
+          if (entryMap.has(d)) {
+            prevDay = d;
+            break;
+          }
+        }
+
+        for (let d = day + 1; d <= labels.length; d++) {
+          if (entryMap.has(d)) {
+            nextDay = d;
+            break;
+          }
+        }
+
+        if (prevDay !== null && nextDay !== null) {
+          const prevValue = entryMap.get(prevDay).level;
+          const nextValue = entryMap.get(nextDay).level;
+          const ratio = (day - prevDay) / (nextDay - prevDay);
+          return Number((prevValue + (nextValue - prevValue) * ratio).toFixed(2));
+        }
+
+        return null;
+      });
+    }
+
+    function buildCycleSeries(labels, entryMap) {
+      return labels.map((day) => {
+        const entry = entryMap.get(day);
+        if (entry?.cycle) return 2;
+
+        const prevEntry = entryMap.get(day - 1);
+        const nextEntry = entryMap.get(day + 1);
+
+        if (prevEntry?.cycle && nextEntry?.cycle) return 2;
+        return null;
+      });
+    }
+
+    function renderChart() {
+      chartTitle.textContent = `Grafico ${capitalize(monthName(currentCalendarDate))}`;
+
+      const entries = getEntriesForCurrentMonth();
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const entryMap = new Map();
+      for (const entry of entries) {
+        const d = new Date(entry.date);
+        entryMap.set(d.getDate(), entry);
+      }
+
+      const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+      const headacheSeries = buildHeadacheSeries(labels, entryMap);
+      const medicineSeries = labels.map((day) => entryMap.get(day)?.medicine ? 1 : null);
+      const cycleSeries = buildCycleSeries(labels, entryMap);
+      const auraSeries = labels.map((day) => entryMap.get(day)?.aura ? 3 : null);
+
+      const ctx = document.getElementById('headacheChart').getContext('2d');
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        data: {
+          labels,
+          datasets: [
+            {
+              type: 'line',
+              label: 'Medicine',
+              data: medicineSeries,
+              borderColor: '#ff9f1c',
+              backgroundColor: 'rgba(255,159,28,0.22)',
+              fill: true,
+              tension: 0.2,
+              pointRadius: 6,
+              pointBackgroundColor: '#ff9f1c',
+              spanGaps: false,
+              order: 1
+            },
+            {
+              type: 'line',
+              label: 'Mal di testa',
+              data: headacheSeries,
+              borderColor: '#ff5ca8',
+              backgroundColor: 'rgba(255, 92, 168, 0.15)',
+              fill: true,
+              tension: 0.28,
+              spanGaps: true,
+              pointRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 4 : 0,
+              pointHoverRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 6 : 0,
+              pointBackgroundColor: '#ff5ca8',
+              pointBorderColor: '#ff5ca8',
+              pointBorderWidth: 0,
+              borderWidth: 3,
+              order: 4
+            },
+            {
+              type: 'line',
+              label: 'Ciclo',
+              data: cycleSeries,
+              borderColor: '#ff3b6b',
+              backgroundColor: 'rgba(255,59,107,0.25)',
+              fill: true,
+              tension: 0.2,
+              pointRadius: (context) => entryMap.get(labels[context.dataIndex])?.cycle ? 6 : 0,
+              pointHoverRadius: (context) => entryMap.get(labels[context.dataIndex])?.cycle ? 7 : 0,
+              pointBackgroundColor: '#ff3b6b',
+              spanGaps: false,
+              order: 2
+            },
+            {
+              type: 'line',
+              label: 'Aura',
+              data: auraSeries,
+              borderColor: '#c77dff',
+              backgroundColor: 'rgba(199,125,255,0.25)',
+              fill: true,
+              tension: 0.2,
+              pointRadius: 6,
+              pointBackgroundColor: '#c77dff',
+              spanGaps: false,
+              order: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'nearest',
+            intersect: true
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: '#6b2146',
+                font: { weight: '700' }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Giorno ${items[0]?.label || ''}`,
+                label: (context) => {
+                  const day = labels[context.dataIndex];
+                  const entry = entryMap.get(day);
+
+                  if (context.dataset.label === 'Mal di testa') {
+                    if (entry) return `Mal di testa: ${entry.level}`;
+                    if (context.raw !== null) return `Mal di testa stimato: ${Number(context.raw).toFixed(1)}`;
+                    return '';
+                  }
+
+                  if (context.dataset.label === 'Medicine') {
+                    if (!entry) return '';
+                    return entry.medicineNotes ? `Medicine: ${entry.medicineNotes}` : 'Medicine';
+                  }
+
+                  if (context.dataset.label === 'Ciclo') {
+                    if (entry?.cycle) return 'Ciclo';
+                    if (context.raw !== null) return 'Ciclo interpolato';
+                    return '';
+                  }
+
+                  if (context.dataset.label === 'Aura') {
+                    if (!entry) return '';
+                    return entry.auraNotes ? `Aura: ${entry.auraNotes}` : 'Aura';
+                  }
+
+                  return '';
+                }
+              },
+              filter: (tooltipItem) => tooltipItem.raw !== null
+            }
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 10.5,
+              ticks: {
+                stepSize: 1,
+                color: '#9a5b7a',
+                callback: (value) => Number.isInteger(value) ? value : ''
+              },
+              grid: { color: 'rgba(255, 92, 168, 0.08)' }
+            },
+            x: {
+              ticks: { color: '#9a5b7a' },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCalendar() {
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+      calendarTitle.textContent = capitalize(monthName(currentCalendarDate));
+      calendarGrid.innerHTML = '';
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      const mondayBasedStart = (firstDay.getDay() + 6) % 7;
+      const prevMonthLastDay = new Date(year, month, 0).getDate();
+
+      for (let i = 0; i < mondayBasedStart; i++) {
+        const dayNum = prevMonthLastDay - mondayBasedStart + i + 1;
+        const dateObj = new Date(year, month - 1, dayNum);
+        calendarGrid.appendChild(createDayCell(dateObj, true));
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(year, month, day);
+        calendarGrid.appendChild(createDayCell(dateObj, false));
+      }
+
+      const filled = mondayBasedStart + daysInMonth;
+      const remaining = (7 - (filled % 7)) % 7;
+      for (let day = 1; day <= remaining; day++) {
+        const dateObj = new Date(year, month + 1, day);
+        calendarGrid.appendChild(createDayCell(dateObj, true));
+      }
+    }
+
+    function createDayCell(dateObj, isOtherMonth) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
+      const entry = data[dateStr];
+      const isToday = dateStr === todayString();
+      const isSelected = dateStr === selectedDate;
+
+      const div = document.createElement('div');
+      div.className = `day${isOtherMonth ? ' other-month' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`;
+      div.innerHTML = `
+        <div class="day-number">${dateObj.getDate()}</div>
+        <div class="dots">
+          ${entry?.medicine ? '<span class="dot medicine" title="Medicine"></span>' : ''}
+          ${entry?.cycle ? '<span class="dot cycle" title="Ciclo"></span>' : ''}
+          ${entry?.aura ? '<span class="dot aura" title="Aura"></span>' : ''}
+        </div>
+        <div class="day-score">${entry ? entry.level : ''}</div>
+      `;
+
+      div.addEventListener('click', () => {
+        currentCalendarDate = new Date(y, dateObj.getMonth(), 1);
+        selectDate(dateStr);
+        renderStats();
+        renderChart();
+      });
+
+      return div;
+    }
+
+    function renderAll() {
+      renderStats();
+      renderHistory();
+      renderChart();
+      renderCalendar();
+    }
+
+    saveBtn.addEventListener('click', saveEntry);
+    deleteBtn.addEventListener('click', deleteEntry);
+
+    todayBtn.addEventListener('click', () => {
+      currentCalendarDate = new Date();
+      selectDate(todayString());
+      renderStats();
+      renderChart();
+    });
+
+    entryDate.addEventListener('change', () => {
+      if (entryDate.value) {
+        const [y, m] = entryDate.value.split('-');
+        currentCalendarDate = new Date(Number(y), Number(m) - 1, 1);
+        selectDate(entryDate.value);
+        renderStats();
+        renderChart();
+      }
+    });
+
+    prevMonthBtn.addEventListener('click', () => {
+      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1);
+      renderCalendar();
+      renderChart();
+      renderStats();
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1);
+      renderCalendar();
+      renderChart();
+      renderStats();
+    });
+
+    if (!entryDate.value) entryDate.value = todayString();
+    selectDate(todayString());
+    renderAll();
+  </script>
+</body>
+</html>
