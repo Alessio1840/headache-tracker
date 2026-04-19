@@ -88,6 +88,12 @@
       margin-bottom: 14px;
     }
 
+    .time-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
     label {
       display: block;
       margin-bottom: 7px;
@@ -98,6 +104,7 @@
     input[type="number"],
     input[type="email"],
     input[type="password"],
+    input[type="time"],
     textarea {
       width: 100%;
       padding: 12px 14px;
@@ -119,6 +126,7 @@
     input[type="date"]:focus,
     input[type="email"]:focus,
     input[type="password"]:focus,
+    input[type="time"]:focus,
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(255, 92, 168, 0.12);
@@ -456,6 +464,7 @@
       .day-score { font-size: 20px; }
       th, td { font-size: 13px; }
       .auth-shell { min-height: calc(100vh - 32px); }
+      .time-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -512,6 +521,23 @@
           <div class="form-group">
             <label for="painLevel">Livello mal di testa (0-10)</label>
             <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
+          </div>
+
+          <div class="time-grid">
+            <div class="form-group">
+              <label for="startTime">Ora di inizio</label>
+              <input type="time" id="startTime" />
+            </div>
+
+            <div class="form-group">
+              <label for="endTime">Ora di fine</label>
+              <input type="time" id="endTime" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="headacheNotes">Note Mal di Testa</label>
+            <textarea id="headacheNotes" placeholder="Es. dolore pulsante lato destro, nausea, sensibilità alla luce..."></textarea>
           </div>
 
           <div class="form-group">
@@ -625,7 +651,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'headache-tracker-data-v3';
+    const STORAGE_KEY = 'headache-tracker-data-v4';
 
     const SUPABASE_URL = 'https://gqtcbgwzxzdjjngumxvt.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
@@ -643,6 +669,9 @@
 
     const entryDate = document.getElementById('entryDate');
     const painLevel = document.getElementById('painLevel');
+    const startTime = document.getElementById('startTime');
+    const endTime = document.getElementById('endTime');
+    const headacheNotes = document.getElementById('headacheNotes');
     const medicineFlag = document.getElementById('medicineFlag');
     const cycleFlag = document.getElementById('cycleFlag');
     const auraFlag = document.getElementById('auraFlag');
@@ -730,6 +759,9 @@
     function resetEntryForm() {
       entryDate.value = todayString();
       painLevel.value = '';
+      startTime.value = '';
+      endTime.value = '';
+      headacheNotes.value = '';
       medicineFlag.checked = false;
       cycleFlag.checked = false;
       auraFlag.checked = false;
@@ -774,6 +806,16 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function buildHeadacheTimeText(entry) {
+      if (!entry) return '';
+
+      const parts = [];
+      if (entry.startTime) parts.push(`Inizio: ${entry.startTime}`);
+      if (entry.endTime) parts.push(`Fine: ${entry.endTime}`);
+
+      return parts.join(' · ');
     }
 
     async function refreshCurrentUser() {
@@ -960,6 +1002,9 @@
           const key = row.entry_date;
           freshData[key] = {
             level: row.pain_level ?? 0,
+            startTime: row.start_time || '',
+            endTime: row.end_time || '',
+            headacheNotes: row.headache_notes || '',
             medicine: !!row.medicine,
             cycle: !!row.cycle,
             aura: !!row.aura,
@@ -987,6 +1032,9 @@
 
       if (entry) {
         painLevel.value = entry.level;
+        startTime.value = entry.startTime || '';
+        endTime.value = entry.endTime || '';
+        headacheNotes.value = entry.headacheNotes || '';
         medicineFlag.checked = !!entry.medicine;
         cycleFlag.checked = !!entry.cycle;
         auraFlag.checked = !!entry.aura;
@@ -994,6 +1042,9 @@
         auraNotes.value = entry.auraNotes || '';
       } else {
         painLevel.value = '';
+        startTime.value = '';
+        endTime.value = '';
+        headacheNotes.value = '';
         medicineFlag.checked = false;
         cycleFlag.checked = false;
         auraFlag.checked = false;
@@ -1026,6 +1077,9 @@
 
       const entryPayload = {
         level,
+        startTime: startTime.value || '',
+        endTime: endTime.value || '',
+        headacheNotes: headacheNotes.value.trim(),
         medicine: medicineFlag.checked,
         cycle: cycleFlag.checked,
         aura: auraFlag.checked,
@@ -1048,6 +1102,9 @@
               user_id: currentUser.id,
               entry_date: date,
               pain_level: entryPayload.level,
+              start_time: entryPayload.startTime || null,
+              end_time: entryPayload.endTime || null,
+              headache_notes: entryPayload.headacheNotes || null,
               medicine: entryPayload.medicine,
               cycle: entryPayload.cycle,
               aura: entryPayload.aura,
@@ -1145,19 +1202,43 @@
       }
 
       for (const entry of entries) {
-        const flags = [];
-        if (entry.medicine) flags.push('<span class="badge medicine">Medicine</span>');
-        if (entry.cycle) flags.push('<span class="badge cycle">Ciclo</span>');
-        if (entry.aura) flags.push('<span class="badge aura">Aura</span>');
-        if (entry.medicineNotes) flags.push(`<div class="muted"><strong>Note Medicine:</strong> ${escapeHtml(entry.medicineNotes)}</div>`);
-        if (entry.auraNotes) flags.push(`<div class="muted"><strong>Note Aura:</strong> ${escapeHtml(entry.auraNotes)}</div>`);
-        if (!flags.length) flags.push('<span class="muted">-</span>');
+        const contentParts = [];
+
+        const badges = [];
+        if (entry.medicine) badges.push('<span class="badge medicine">Medicine</span>');
+        if (entry.cycle) badges.push('<span class="badge cycle">Ciclo</span>');
+        if (entry.aura) badges.push('<span class="badge aura">Aura</span>');
+
+        if (badges.length) {
+          contentParts.push(`<div>${badges.join('')}</div>`);
+        }
+
+        const headacheTimeText = buildHeadacheTimeText(entry);
+        if (headacheTimeText) {
+          contentParts.push(`<div class="muted"><strong>Orari:</strong> ${escapeHtml(headacheTimeText)}</div>`);
+        }
+
+        if (entry.headacheNotes) {
+          contentParts.push(`<div class="muted"><strong>Note Mal di Testa:</strong> ${escapeHtml(entry.headacheNotes)}</div>`);
+        }
+
+        if (entry.medicineNotes) {
+          contentParts.push(`<div class="muted"><strong>Note Medicine:</strong> ${escapeHtml(entry.medicineNotes)}</div>`);
+        }
+
+        if (entry.auraNotes) {
+          contentParts.push(`<div class="muted"><strong>Note Aura:</strong> ${escapeHtml(entry.auraNotes)}</div>`);
+        }
+
+        if (!contentParts.length) {
+          contentParts.push('<span class="muted">-</span>');
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${formatDate(entry.date)}</td>
           <td><strong>${entry.level}</strong></td>
-          <td>${flags.join('')}</td>
+          <td>${contentParts.join('')}</td>
         `;
         tr.addEventListener('click', () => selectDate(entry.date));
         historyTableBody.appendChild(tr);
@@ -1318,8 +1399,18 @@
                   const entry = entryMap.get(day);
 
                   if (context.dataset.label === 'Mal di testa') {
-                    if (entry) return `Mal di testa: ${entry.level}`;
-                    if (context.raw !== null) return `Mal di testa stimato: ${Number(context.raw).toFixed(1)}`;
+                    if (entry) {
+                      const details = [`Mal di testa: ${entry.level}`];
+                      if (entry.startTime) details.push(`Inizio ${entry.startTime}`);
+                      if (entry.endTime) details.push(`Fine ${entry.endTime}`);
+                      if (entry.headacheNotes) details.push(entry.headacheNotes);
+                      return details.join(' · ');
+                    }
+
+                    if (context.raw !== null) {
+                      return `Mal di testa stimato: ${Number(context.raw).toFixed(1)}`;
+                    }
+
                     return '';
                   }
 
