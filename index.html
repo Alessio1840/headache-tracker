@@ -32,12 +32,23 @@
       background: linear-gradient(135deg, var(--bg1), var(--bg2));
       color: var(--text);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
       padding: 24px;
+    }
+
+    .container,
+    .grid,
+    main,
+    aside,
+    .card,
+    .topbar,
+    .calendar-header {
+      min-width: 0;
     }
 
     .hero {
@@ -338,9 +349,22 @@
       border-radius: 999px;
     }
 
+    .chart-wrap {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 12px;
+    }
+
+    .chart-inner {
+      min-width: 700px;
+    }
+
     canvas {
       width: 100% !important;
       max-height: 360px;
+      display: block;
     }
 
     .table-wrap {
@@ -458,13 +482,98 @@
     }
 
     @media (max-width: 640px) {
-      .container { padding: 16px; }
+      .container { padding: 16px 12px; }
+      .card { padding: 18px; }
+      .hero { padding: 18px; }
+      .hero h1 { line-height: 1.1; }
+      .hero p { font-size: 14px; }
       .stats { grid-template-columns: 1fr; }
-      .day { min-height: 78px; }
-      .day-score { font-size: 20px; }
-      th, td { font-size: 13px; }
+      .calendar-header { flex-direction: column; align-items: stretch; }
+      .calendar-nav { justify-content: stretch; width: 100%; }
+      .calendar-nav button { flex: 1 1 0; }
+      .weekday-row,
+      .calendar-grid { grid-template-columns: repeat(7, minmax(32px, 1fr)); gap: 6px; }
+      .weekday { padding: 6px 2px; font-size: 11px; }
+      .day { min-height: 72px; padding: 6px; }
+      .day-number { font-size: 12px; }
+      .day-score { font-size: 18px; }
+      .actions { flex-direction: column; }
+      button { width: 100%; }
+      .flags { display: grid; grid-template-columns: 1fr; }
+      .flag-toggle { width: 100%; }
+      .table-wrap {
+        overflow: visible;
+        max-height: none;
+        border: none;
+        border-radius: 0;
+        margin-top: 10px;
+      }
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+        width: 100%;
+      }
+      thead {
+        display: none;
+      }
+      tbody {
+        display: grid;
+        gap: 12px;
+      }
+      tr {
+        background: rgba(255,255,255,0.82);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 14px;
+      }
+      th, td {
+        font-size: 13px;
+        white-space: normal;
+        border-bottom: none;
+        padding: 0;
+      }
+      td + td {
+        margin-top: 10px;
+      }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      tr.empty-row {
+        padding: 0;
+        background: transparent;
+        border: none;
+      }
+      tr.empty-row td {
+        padding: 0;
+      }
+      tr.empty-row td::before {
+        display: none;
+      }
       .auth-shell { min-height: calc(100vh - 32px); }
+      .auth-card { padding: 18px; max-width: 100%; }
+      .topbar { flex-direction: column; align-items: stretch; }
+      .topbar > div { width: 100%; }
+      .topbar > div:last-child { justify-content: stretch; }
+      .topbar .user-pill { width: 100%; text-align: center; }
       .time-grid { grid-template-columns: 1fr; }
+      .chart-wrap {
+        margin-left: -18px;
+        margin-right: -18px;
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+      .chart-inner { min-width: 640px; }
     }
   </style>
 </head>
@@ -594,7 +703,11 @@
             </div>
 
             <h2 id="chartTitle">Grafico</h2>
-            <canvas id="headacheChart"></canvas>
+            <div class="chart-wrap">
+              <div class="chart-inner">
+                <canvas id="headacheChart"></canvas>
+              </div>
+            </div>
             <div class="legend">
               <div class="legend-item"><span class="legend-swatch" style="background: var(--primary);"></span> Livello mal di testa</div>
               <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
@@ -786,6 +899,32 @@
 
     function capitalize(str) {
       return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function supportsInputType(type) {
+      const input = document.createElement('input');
+      input.setAttribute('type', type);
+      return input.type === type;
+    }
+
+    function applyTimeInputFallback() {
+      if (supportsInputType('time')) {
+        startTime.type = 'time';
+        endTime.type = 'time';
+        startTime.inputMode = 'none';
+        endTime.inputMode = 'none';
+        startTime.placeholder = '';
+        endTime.placeholder = '';
+      } else {
+        startTime.type = 'text';
+        endTime.type = 'text';
+        startTime.inputMode = 'numeric';
+        endTime.inputMode = 'numeric';
+        startTime.pattern = '[0-9:]*';
+        endTime.pattern = '[0-9:]*';
+        startTime.placeholder = 'HH:MM';
+        endTime.placeholder = 'HH:MM';
+      }
     }
 
     function getEntriesForCurrentMonth() {
@@ -1194,7 +1333,7 @@
 
       if (!entries.length) {
         historyTableBody.innerHTML = `
-          <tr>
+          <tr class="empty-row">
             <td colspan="3" class="muted">Ancora nessun dato salvato.</td>
           </tr>
         `;
@@ -1236,9 +1375,9 @@
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${formatDate(entry.date)}</td>
-          <td><strong>${entry.level}</strong></td>
-          <td>${contentParts.join('')}</td>
+          <td data-label="Data">${formatDate(entry.date)}</td>
+          <td data-label="Dolore"><strong>${entry.level}</strong></td>
+          <td data-label="Flag e note">${contentParts.join('')}</td>
         `;
         tr.addEventListener('click', () => selectDate(entry.date));
         historyTableBody.appendChild(tr);
@@ -1589,6 +1728,7 @@
 
       renderAll();
       resetEntryForm();
+      applyTimeInputFallback();
       showAuthView();
       await initUser();
 
