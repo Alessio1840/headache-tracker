@@ -6,6 +6,7 @@
   <title>Headache Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
       --bg1: #fff0f6;
@@ -682,6 +683,7 @@
             <button class="secondary" id="todayBtn">Vai a oggi</button>
             <button class="secondary" id="reloadBtn">Ricarica dati</button>
             <button class="danger" id="deleteBtn">Elimina giorno</button>
+            <button class="secondary" id="exportPdfBtn">Scarica PDF</button>
           </div>
         </aside>
 
@@ -794,6 +796,7 @@
     const deleteBtn = document.getElementById('deleteBtn');
     const todayBtn = document.getElementById('todayBtn');
     const reloadBtn = document.getElementById('reloadBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
     const statusText = document.getElementById('statusText');
     const authStatusText = document.getElementById('authStatusText');
     const userInfoText = document.getElementById('userInfoText');
@@ -1387,33 +1390,17 @@
     function buildHeadacheSeries(labels, entryMap) {
       return labels.map((day) => {
         const directEntry = entryMap.get(day);
-        if (directEntry) return directEntry.level;
+        return directEntry ? directEntry.level : null;
+      });
+    }
 
-        let prevDay = null;
-        let nextDay = null;
+    function getMonthEntries(monthDate) {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth() + 1;
 
-        for (let d = day - 1; d >= 1; d--) {
-          if (entryMap.has(d)) {
-            prevDay = d;
-            break;
-          }
-        }
-
-        for (let d = day + 1; d <= labels.length; d++) {
-          if (entryMap.has(d)) {
-            nextDay = d;
-            break;
-          }
-        }
-
-        if (prevDay !== null && nextDay !== null) {
-          const prevValue = entryMap.get(prevDay).level;
-          const nextValue = entryMap.get(nextDay).level;
-          const ratio = (day - prevDay) / (nextDay - prevDay);
-          return Number((prevValue + (nextValue - prevValue) * ratio).toFixed(2));
-        }
-
-        return null;
+      return getSortedEntries().filter((entry) => {
+        const [entryYear, entryMonth] = entry.date.split('-').map(Number);
+        return entryYear === year && entryMonth === month;
       });
     }
 
@@ -1478,9 +1465,9 @@
               backgroundColor: 'rgba(255, 92, 168, 0.15)',
               fill: true,
               tension: 0.28,
-              spanGaps: true,
-              pointRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 4 : 0,
-              pointHoverRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 6 : 0,
+              spanGaps: false,
+              pointRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 6 : 0,
+              pointHoverRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 7 : 0,
               pointBackgroundColor: '#ff5ca8',
               pointBorderColor: '#ff5ca8',
               pointBorderWidth: 0,
@@ -1595,6 +1582,410 @@
       });
     }
 
+    function exportPdf() {
+      if (!window.jspdf?.jsPDF) {
+        setStatus('Impossibile generare il PDF: libreria non disponibile.');
+        return;
+      }
+
+      const entries = getSortedEntries();
+      const months = [];
+
+      // Inserisce tutti i mesi compresi tra il primo e l'ultimo dato,
+      // includendo anche gli eventuali mesi vuoti nel mezzo.
+      if (entries.length) {
+        const [startYear, startMonth] = entries[0].date.split('-').map(Number);
+        const [endYear, endMonth] = entries[entries.length - 1].date.split('-').map(Number);
+        const cursor = new Date(startYear, startMonth - 1, 1);
+        const endDate = new Date(endYear, endMonth - 1, 1);
+
+        while (cursor <= endDate) {
+          months.push({
+            year: cursor.getFullYear(),
+            month: cursor.getMonth() + 1
+          });
+          cursor.setMonth(cursor.getMonth() + 1);
+        }
+      } else {
+        months.push({
+          year: currentCalendarDate.getFullYear(),
+          month: currentCalendarDate.getMonth() + 1
+        });
+      }
+
+      const pdf = new window.jspdf.jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 9;
+      // Layout PDF compatto: mese vicino alla griglia, caselle più grandi
+      // e impaginazione dinamica per lasciare spazio a tutte le note Aura.
+      const leftLabelWidth = 24;
+      const cellGap = 0.40;
+      const cellHeight = 9.4;
+      const markerSize = 1.55;
+      const markerGap = 0.45;
+      const headerHeight = 30.5;
+      const footerHeight = 7.5;
+      const usableWidth = pageWidth - marginX * 2 - leftLabelWidth;
+      const cellWidth = (usableWidth - cellGap * 30) / 31;
+
+      const colors = {
+        text: [107, 33, 70],
+        muted: [154, 91, 122],
+        border: [230, 216, 226],
+        separator: [242, 232, 238],
+        cell: [255, 255, 255],
+        cellWithValue: [255, 248, 252],
+        invalidCell: [250, 247, 249],
+        medicine: [255, 159, 28],
+        cycle: [255, 59, 107],
+        aura: [199, 125, 255],
+        auraNote: [250, 244, 255]
+      };
+
+      const setTextColor = (color) => pdf.setTextColor(...color);
+      const setFillColor = (color) => pdf.setFillColor(...color);
+      const setDrawColor = (color) => pdf.setDrawColor(...color);
+
+      const monthLabel = (year, month) => capitalize(
+        new Date(year, month - 1, 1).toLocaleDateString('it-IT', {
+          month: 'long',
+          year: 'numeric'
+        })
+      );
+
+      const monthNameLabel = (year, month) => capitalize(
+        new Date(year, month - 1, 1).toLocaleDateString('it-IT', {
+          month: 'long'
+        })
+      );
+
+      const periodLabel = months.length === 1
+        ? monthLabel(months[0].year, months[0].month)
+        : `${monthLabel(months[0].year, months[0].month)} - ${monthLabel(months[months.length - 1].year, months[months.length - 1].month)}`;
+
+      const drawLegendItem = (x, y, color, label) => {
+        setFillColor(color);
+        pdf.roundedRect(x, y - 2.3, 3.2, 3.2, 0.65, 0.65, 'F');
+        setTextColor(colors.text);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.2);
+        pdf.text(label, x + 4.6, y + 0.25);
+      };
+
+      const drawHeader = (pageNumber, totalPages) => {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(13);
+        setTextColor(colors.text);
+        pdf.text('Diario mal di testa', marginX, 10.5);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.3);
+        setTextColor(colors.muted);
+        pdf.text(`Periodo: ${periodLabel}`, marginX, 15.3);
+
+        const pageText = `Pagina ${pageNumber}/${totalPages}`;
+        pdf.text(pageText, pageWidth - marginX, 10.5, { align: 'right' });
+        pdf.text(
+          `Generato il ${new Date().toLocaleDateString('it-IT')}`,
+          pageWidth - marginX,
+          15.3,
+          { align: 'right' }
+        );
+
+        setFillColor([255, 250, 253]);
+        setDrawColor(colors.border);
+        pdf.roundedRect(marginX, 19, pageWidth - marginX * 2, 9, 2.2, 2.2, 'FD');
+
+        // Esempio del riquadro che contiene il valore del dolore.
+        setFillColor(colors.cellWithValue);
+        setDrawColor(colors.border);
+        pdf.roundedRect(marginX + 4, 21.1, 7, 4.8, 1.1, 1.1, 'FD');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.2);
+        setTextColor(colors.text);
+        pdf.text('7', marginX + 7.5, 24.45, { align: 'center' });
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.2);
+        pdf.text('Intensita dolore (0-10)', marginX + 13, 24.45);
+
+        drawLegendItem(marginX + 69, 24.25, colors.medicine, 'Medicine');
+        drawLegendItem(marginX + 101, 24.25, colors.cycle, 'Ciclo');
+        drawLegendItem(marginX + 124, 24.25, colors.aura, 'Aura');
+      };
+
+      const drawFooter = () => {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6.4);
+        setTextColor(colors.muted);
+        pdf.text(
+          'Il numero sopra ogni riquadro indica il giorno; il numero nel riquadro indica il livello di dolore.',
+          marginX,
+          pageHeight - 3.4
+        );
+      };
+
+      const getMonthEntries = (monthInfo) => entries.filter((entry) => {
+        const [entryYear, entryMonth] = entry.date.split('-').map(Number);
+        return entryYear === monthInfo.year && entryMonth === monthInfo.month;
+      });
+
+      const getAuraNoteEntries = (monthInfo) => getMonthEntries(monthInfo)
+        .filter((entry) => entry.auraNotes?.trim())
+        .map((entry) => ({
+          day: Number(entry.date.split('-')[2]),
+          text: entry.auraNotes.trim()
+        }));
+
+      const wrapAuraNote = (text, firstLineWidth, fullLineWidth) => {
+        const words = text.split(/\s+/);
+        const lines = [];
+        let currentLine = '';
+        let currentWidth = firstLineWidth;
+
+        words.forEach((word) => {
+          const candidate = currentLine ? `${currentLine} ${word}` : word;
+          if (currentLine && pdf.getTextWidth(candidate) > currentWidth) {
+            lines.push(currentLine);
+            currentLine = word;
+            currentWidth = fullLineWidth;
+          } else {
+            currentLine = candidate;
+          }
+        });
+
+        if (currentLine) lines.push(currentLine);
+        return lines.length ? lines : [''];
+      };
+
+      const getAuraNoteLayout = (monthInfo) => {
+        const noteEntries = getAuraNoteEntries(monthInfo);
+        const auraTextX = marginX + 20;
+        const rightEdge = pageWidth - marginX - 1.8;
+        const fullLineWidth = rightEdge - auraTextX;
+
+        pdf.setFontSize(7.2);
+        return noteEntries.map((noteEntry) => {
+          pdf.setFont('helvetica', 'bold');
+          const dateText = `${noteEntry.day}:`;
+          const dateWidth = pdf.getTextWidth(dateText) + 1;
+          pdf.setFont('helvetica', 'normal');
+          return {
+            ...noteEntry,
+            dateText,
+            dateWidth,
+            lines: wrapAuraNote(
+              noteEntry.text,
+              fullLineWidth - dateWidth,
+              fullLineWidth
+            )
+          };
+        });
+      };
+
+      const getMonthBlockHeight = (monthInfo) => {
+        const auraLineCount = getAuraNoteLayout(monthInfo)
+          .reduce((total, noteEntry) => total + noteEntry.lines.length, 0);
+        const auraBoxHeight = Math.max(6.4, auraLineCount * 3 + 2);
+        return 16.85 + auraBoxHeight + 1.2;
+      };
+
+      const drawMonthBlock = (monthInfo, rowTop, drawSeparator) => {
+        const cellY = rowTop + 4.4;
+        const dayY = cellY - 0.75;
+        const markersY = cellY + cellHeight + 0.75;
+        const monthCenterY = cellY + cellHeight / 2 + 0.95;
+
+        const monthEntries = getMonthEntries(monthInfo);
+
+        const monthEntryMap = new Map(
+          monthEntries.map((entry) => [Number(entry.date.split('-')[2]), entry])
+        );
+        const daysInMonth = new Date(monthInfo.year, monthInfo.month, 0).getDate();
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10.5);
+        setTextColor(colors.text);
+        pdf.text(
+          monthNameLabel(monthInfo.year, monthInfo.month),
+          marginX,
+          monthCenterY,
+          { align: 'left' }
+        );
+
+        for (let day = 1; day <= 31; day++) {
+          const cellX = marginX + leftLabelWidth + (day - 1) * (cellWidth + cellGap);
+          const isValidDay = day <= daysInMonth;
+          const entry = monthEntryMap.get(day);
+
+          if (!isValidDay) {
+            setFillColor(colors.invalidCell);
+            setDrawColor(colors.separator);
+            pdf.roundedRect(cellX, cellY, cellWidth, cellHeight, 1.4, 1.4, 'FD');
+            continue;
+          }
+
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(7);
+          setTextColor(colors.muted);
+          pdf.text(String(day), cellX + cellWidth / 2, dayY, { align: 'center' });
+
+          setFillColor(entry ? colors.cellWithValue : colors.cell);
+          setDrawColor(colors.border);
+          pdf.roundedRect(cellX, cellY, cellWidth, cellHeight, 1.4, 1.4, 'FD');
+
+          if (entry?.level !== undefined && entry?.level !== null) {
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(9.2);
+            setTextColor(colors.text);
+            pdf.text(
+              String(entry.level),
+              cellX + cellWidth / 2,
+              cellY + cellHeight / 2 + 1.30,
+              { align: 'center' }
+            );
+          }
+
+          if (entry) {
+            const markerColors = [];
+            if (entry.medicine) markerColors.push(colors.medicine);
+            if (entry.cycle) markerColors.push(colors.cycle);
+            if (entry.aura) markerColors.push(colors.aura);
+
+            if (markerColors.length) {
+              const totalMarkersWidth =
+                markerColors.length * markerSize +
+                (markerColors.length - 1) * markerGap;
+              const startX = cellX + (cellWidth - totalMarkersWidth) / 2;
+
+              markerColors.forEach((color, markerIndex) => {
+                setFillColor(color);
+                pdf.roundedRect(
+                  startX + markerIndex * (markerSize + markerGap),
+                  markersY,
+                  markerSize,
+                  markerSize,
+                  0.4,
+                  0.4,
+                  'F'
+                );
+              });
+            }
+          }
+        }
+
+        const auraNoteEntries = getAuraNoteLayout(monthInfo);
+        const auraBoxY = rowTop + 16.85;
+        const auraLineCount = auraNoteEntries
+          .reduce((total, noteEntry) => total + noteEntry.lines.length, 0);
+        const auraBoxHeight = Math.max(6.4, auraLineCount * 3 + 2);
+        const auraBoxWidth = pageWidth - marginX * 2;
+
+        setFillColor(colors.auraNote);
+        setDrawColor(colors.aura);
+        pdf.setLineWidth(0.18);
+        pdf.roundedRect(
+          marginX,
+          auraBoxY,
+          auraBoxWidth,
+          auraBoxHeight,
+          0.9,
+          0.9,
+          'FD'
+        );
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.2);
+        setTextColor(colors.aura);
+        pdf.text('Note Aura:', marginX + 1.8, auraBoxY + 3);
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(7.2);
+        setTextColor(auraNoteEntries.length ? colors.text : colors.muted);
+        const auraTextX = marginX + 20;
+
+        if (!auraNoteEntries.length) {
+          pdf.text('Nessuna nota', auraTextX, auraBoxY + 3);
+        } else {
+          let noteLineIndex = 0;
+          auraNoteEntries.forEach((noteEntry) => {
+            const textY = auraBoxY + 3 + noteLineIndex * 3;
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(noteEntry.dateText, auraTextX, textY);
+
+            const noteTextX = auraTextX + noteEntry.dateWidth;
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(noteEntry.lines[0], noteTextX, textY);
+
+            noteEntry.lines.slice(1).forEach((line, continuationIndex) => {
+              pdf.text(
+                line,
+                auraTextX,
+                textY + (continuationIndex + 1) * 3
+              );
+            });
+            noteLineIndex += noteEntry.lines.length;
+          });
+        }
+
+        if (drawSeparator) {
+          setDrawColor(colors.separator);
+          pdf.setLineWidth(0.25);
+          pdf.line(
+            marginX,
+            rowTop + getMonthBlockHeight(monthInfo) - 0.45,
+            pageWidth - marginX,
+            rowTop + getMonthBlockHeight(monthInfo) - 0.45
+          );
+        }
+      };
+
+      const pages = [];
+      let currentPageMonths = [];
+      let currentPageHeight = 0;
+      const availablePageHeight = pageHeight - headerHeight - footerHeight;
+
+      months.forEach((monthInfo) => {
+        const blockHeight = getMonthBlockHeight(monthInfo);
+        if (
+          currentPageMonths.length &&
+          currentPageHeight + blockHeight > availablePageHeight
+        ) {
+          pages.push(currentPageMonths);
+          currentPageMonths = [];
+          currentPageHeight = 0;
+        }
+        currentPageMonths.push(monthInfo);
+        currentPageHeight += blockHeight;
+      });
+      if (currentPageMonths.length) pages.push(currentPageMonths);
+
+      const totalPages = pages.length;
+
+      pages.forEach((pageMonths, pageIndex) => {
+        if (pageIndex > 0) pdf.addPage();
+
+        drawHeader(pageIndex + 1, totalPages);
+
+        let rowTop = headerHeight;
+        pageMonths.forEach((monthInfo, monthIndex) => {
+          drawMonthBlock(monthInfo, rowTop, monthIndex < pageMonths.length - 1);
+          rowTop += getMonthBlockHeight(monthInfo);
+        });
+
+        drawFooter();
+      });
+
+      pdf.save(`riassunto-headache-${new Date().toISOString().slice(0, 10)}.pdf`);
+      setStatus('PDF scaricato con successo.');
+    }
+
     function renderCalendar() {
       const year = currentCalendarDate.getFullYear();
       const month = currentCalendarDate.getMonth();
@@ -1678,6 +2069,8 @@
       }
       await loadEntriesFromSupabase();
     });
+
+    exportPdfBtn.addEventListener('click', exportPdf);
 
     todayBtn.addEventListener('click', () => {
       currentCalendarDate = new Date();
