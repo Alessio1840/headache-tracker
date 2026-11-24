@@ -22,6 +22,7 @@
       --medicine: #ff9f1c;
       --cycle: #ff3b6b;
       --aura: #c77dff;
+      --insomnia: #58b9ee;
       --today: #ffd6e7;
     }
 
@@ -43,7 +44,6 @@
     }
 
     .container,
-    .grid,
     main,
     aside,
     .card,
@@ -68,12 +68,6 @@
       line-height: 1.05;
     }
 
-    .hero p {
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -89,11 +83,58 @@
       font-size: 20px;
     }
 
-    .grid {
+    #appView {
+      padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .app-nav {
+      position: fixed;
+      z-index: 5;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      width: min(360px, calc(100% - 24px));
+      transform: translateX(-50%);
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
-      align-items: start;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #fff7fb;
+      box-shadow: var(--shadow);
+    }
+
+    .app-nav button {
+      min-height: 44px;
+      border-radius: 13px;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .app-nav button[aria-pressed="true"] {
+      background: #fbd8e9;
+      color: #852453;
+    }
+
+    .app-nav button:focus-visible {
+      outline: 2px solid #852453;
+      outline-offset: -3px;
+    }
+
+    .app-status {
+      margin: 0 4px 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .app-status:empty { margin: 0; }
+
+    #entryPage .card {
+      width: 100%;
+    }
+
+    .diary-actions {
+      margin: 0 0 14px;
     }
 
     .form-group {
@@ -254,6 +295,11 @@
       border-radius: 12px;
     }
 
+    .chart-month-nav {
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
     .weekday-row,
     .calendar-grid {
       display: grid;
@@ -328,6 +374,7 @@
     .dot.medicine { background: var(--medicine); }
     .dot.cycle { background: var(--cycle); }
     .dot.aura { background: var(--aura); }
+    .dot.insomnia { background: var(--insomnia); }
 
     .legend {
       display: flex;
@@ -354,6 +401,7 @@
       width: 100%;
       overflow-x: auto;
       overflow-y: hidden;
+      overscroll-behavior-x: contain;
       -webkit-overflow-scrolling: touch;
       margin-bottom: 12px;
     }
@@ -398,6 +446,10 @@
       color: var(--text);
     }
 
+    #historyTableBody tr:not(.empty-row) {
+      cursor: pointer;
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -422,6 +474,11 @@
     .badge.aura {
       background: rgba(199, 125, 255, 0.15);
       color: #7f39c9;
+    }
+
+    .badge.insomnia {
+      background: #58b9ee26;
+      color: #1d608c;
     }
 
     .muted {
@@ -470,7 +527,18 @@
       align-items: center;
       gap: 14px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
+    }
+
+    .session-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .session-controls .user-pill {
+      overflow-wrap: anywhere;
     }
 
     .user-pill {
@@ -487,13 +555,14 @@
       .card { padding: 18px; }
       .hero { padding: 18px; }
       .hero h1 { line-height: 1.1; }
-      .hero p { font-size: 14px; }
       .stats { grid-template-columns: 1fr; }
       .calendar-header { flex-direction: column; align-items: stretch; }
       .calendar-nav { justify-content: stretch; width: 100%; }
       .calendar-nav button { flex: 1 1 0; }
+      .chart-month-nav { justify-content: flex-end; }
+      .chart-month-nav button { flex: 0 0 auto; width: auto; }
       .weekday-row,
-      .calendar-grid { grid-template-columns: repeat(7, minmax(32px, 1fr)); gap: 6px; }
+      .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
       .weekday { padding: 6px 2px; font-size: 11px; }
       .day { min-height: 72px; padding: 6px; }
       .day-number { font-size: 12px; }
@@ -564,9 +633,10 @@
       .auth-shell { min-height: calc(100vh - 32px); }
       .auth-card { padding: 18px; max-width: 100%; }
       .topbar { flex-direction: column; align-items: stretch; }
-      .topbar > div { width: 100%; }
-      .topbar > div:last-child { justify-content: stretch; }
-      .topbar .user-pill { width: 100%; text-align: center; }
+      .session-controls .user-pill { flex: 1; }
+      .session-controls button { width: auto; }
+      .diary-actions { flex-direction: row; }
+      .diary-actions button { width: auto; flex: 1; }
       .time-grid { grid-template-columns: 1fr; }
       .chart-wrap {
         margin-left: -18px;
@@ -608,86 +678,102 @@
     <section id="appView" class="hidden">
       <section class="hero">
         <div class="topbar">
-          <div>
-            <h1>Headache Tracker</h1>
-            <p>I tuoi dati sono visibili solo dopo l’accesso.</p>
-          </div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <h1>Headache Tracker</h1>
+          <div class="session-controls">
             <div class="user-pill" id="userInfoText">Utente autenticato</div>
             <button class="danger" id="signOutBtn">Esci</button>
           </div>
         </div>
       </section>
 
-      <div class="grid">
-        <aside class="card">
-          <h2>Inserisci o modifica un giorno</h2>
+      <nav class="app-nav" aria-label="Schermate del tracker">
+        <button type="button" id="entryPageBtn" aria-controls="entryPage" aria-pressed="true">Inserisci</button>
+        <button type="button" id="diaryPageBtn" aria-controls="diaryPage" aria-pressed="false">Diario</button>
+      </nav>
+      <p class="app-status" id="appStatusText" role="status"></p>
 
-          <div class="form-group">
-            <label for="entryDate">Data</label>
-            <input type="date" id="entryDate" />
-          </div>
+      <div>
+        <section id="entryPage" aria-labelledby="entryHeading">
+          <aside class="card">
+            <h2 id="entryHeading" tabindex="-1">Inserisci o modifica un giorno</h2>
 
-          <div class="form-group">
-            <label for="painLevel">Livello mal di testa (0-10)</label>
-            <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
-          </div>
-
-          <div class="time-grid">
             <div class="form-group">
-              <label for="startTime">Ora di inizio</label>
-              <input type="time" id="startTime" />
+              <label for="entryDate">Data</label>
+              <input type="date" id="entryDate" />
             </div>
 
             <div class="form-group">
-              <label for="endTime">Ora di fine</label>
-              <input type="time" id="endTime" />
+              <label for="painLevel">Livello mal di testa (0-10)</label>
+              <input type="number" id="painLevel" min="0" max="10" step="1" placeholder="Es. 6" />
             </div>
-          </div>
 
-          <div class="form-group">
-            <label for="headacheNotes">Note Mal di Testa</label>
-            <textarea id="headacheNotes" placeholder="Es. dolore pulsante lato destro, nausea, sensibilità alla luce..."></textarea>
-          </div>
+            <div class="time-grid">
+              <div class="form-group">
+                <label for="startTime">Ora di inizio</label>
+                <input type="time" id="startTime" />
+              </div>
 
-          <div class="form-group">
-            <label>Flag</label>
-            <div class="flags">
-              <label class="flag-toggle">
-                <input type="checkbox" id="medicineFlag" />
-                <span>Medicine</span>
-              </label>
-              <label class="flag-toggle">
-                <input type="checkbox" id="cycleFlag" />
-                <span>Ciclo</span>
-              </label>
-              <label class="flag-toggle">
-                <input type="checkbox" id="auraFlag" />
-                <span>Aura</span>
-              </label>
+              <div class="form-group">
+                <label for="endTime">Ora di fine</label>
+                <input type="time" id="endTime" />
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label for="medicineNotes">Note su Medicine</label>
-            <textarea id="medicineNotes" placeholder="Es. farmaco preso, dose, orario..."></textarea>
-          </div>
+            <div class="form-group">
+              <label for="headacheNotes">Note Mal di Testa</label>
+              <textarea id="headacheNotes" placeholder="Es. dolore pulsante lato destro, nausea, sensibilità alla luce..."></textarea>
+            </div>
 
-          <div class="form-group">
-            <label for="auraNotes">Note su Aura</label>
-            <textarea id="auraNotes" placeholder="Es. tipo di aura, durata, sintomi..."></textarea>
-          </div>
+            <div class="form-group">
+              <label>Flag</label>
+              <div class="flags">
+                <label class="flag-toggle">
+                  <input type="checkbox" id="medicineFlag" />
+                  <span>Medicine</span>
+                </label>
+                <label class="flag-toggle">
+                  <input type="checkbox" id="cycleFlag" />
+                  <span>Ciclo</span>
+                </label>
+                <label class="flag-toggle">
+                  <input type="checkbox" id="auraFlag" />
+                  <span>Aura</span>
+                </label>
+                <label class="flag-toggle">
+                  <input type="checkbox" id="insomniaFlag" />
+                  <span>Insonnia</span>
+                </label>
+              </div>
+            </div>
 
-          <div class="actions">
-            <button class="primary" id="saveBtn">Salva giorno</button>
-            <button class="secondary" id="todayBtn">Vai a oggi</button>
+            <div class="form-group">
+              <label for="medicineNotes">Note su Medicine</label>
+              <textarea id="medicineNotes" placeholder="Es. farmaco preso, dose, orario..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="auraNotes">Note su Aura</label>
+              <textarea id="auraNotes" placeholder="Es. tipo di aura, durata, sintomi..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="insomniaNotes">Note su Insonnia</label>
+              <textarea id="insomniaNotes" placeholder="Es. difficoltà ad addormentarsi, risvegli, possibile motivo..."></textarea>
+            </div>
+
+            <div class="actions">
+              <button class="primary" id="saveBtn">Salva giorno</button>
+              <button class="secondary" id="todayBtn">Vai a oggi</button>
+              <button class="danger" id="deleteBtn">Elimina giorno</button>
+            </div>
+          </aside>
+        </section>
+
+        <main id="diaryPage" aria-label="Diario" hidden>
+          <div class="actions diary-actions">
             <button class="secondary" id="reloadBtn">Ricarica dati</button>
-            <button class="danger" id="deleteBtn">Elimina giorno</button>
             <button class="secondary" id="exportPdfBtn">Scarica PDF</button>
           </div>
-        </aside>
-
-        <main>
           <section class="card" style="margin-bottom: 20px;">
             <div class="stats">
               <div class="stat">
@@ -696,11 +782,11 @@
               </div>
               <div class="stat">
                 <div class="label">Media dolore</div>
-                <div class="value" id="statAvg">0</div>
+                <div class="value" id="statAvg"></div>
               </div>
               <div class="stat">
                 <div class="label">Ultimo valore</div>
-                <div class="value" id="statLast">-</div>
+                <div class="value" id="statLast"></div>
               </div>
             </div>
 
@@ -715,15 +801,20 @@
               <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
               <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
               <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--insomnia);"></span> Insonnia</div>
+            </div>
+            <div class="calendar-nav chart-month-nav" role="group" aria-label="Mese del grafico">
+              <button type="button" class="secondary" data-month-step="-1" aria-label="Mese precedente">◀</button>
+              <button type="button" class="secondary" data-month-step="1" aria-label="Mese successivo">▶</button>
             </div>
           </section>
 
           <section class="card" style="margin-bottom: 20px;">
             <div class="calendar-header">
               <h2 style="margin:0;">Calendario</h2>
-              <div class="calendar-nav">
-                <button class="secondary" id="prevMonthBtn">◀</button>
-                <button class="secondary" id="nextMonthBtn">▶</button>
+              <div class="calendar-nav" role="group" aria-label="Mese del calendario">
+                <button type="button" class="secondary" data-month-step="-1" aria-label="Mese precedente">◀</button>
+                <button type="button" class="secondary" data-month-step="1" aria-label="Mese successivo">▶</button>
               </div>
             </div>
             <h3 id="calendarTitle" class="muted" style="margin-top:0;"></h3>
@@ -742,11 +833,18 @@
               <div class="legend-item"><span class="legend-swatch" style="background: var(--medicine);"></span> Medicine</div>
               <div class="legend-item"><span class="legend-swatch" style="background: var(--cycle);"></span> Ciclo</div>
               <div class="legend-item"><span class="legend-swatch" style="background: var(--aura);"></span> Aura</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--insomnia);"></span> Insonnia</div>
             </div>
           </section>
 
           <section class="card">
-            <h2>Storico</h2>
+            <div class="calendar-header">
+              <h2 id="historyTitle" style="margin:0;">Storico</h2>
+              <div class="calendar-nav" role="group" aria-label="Mese dello storico">
+                <button type="button" class="secondary" data-month-step="-1" aria-label="Mese precedente">◀</button>
+                <button type="button" class="secondary" data-month-step="1" aria-label="Mese successivo">▶</button>
+              </div>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -772,9 +870,16 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const entriesRepository = createEntriesRepository(supabaseClient);
 
     const authView = document.getElementById('authView');
     const appView = document.getElementById('appView');
+    const entryPage = document.getElementById('entryPage');
+    const diaryPage = document.getElementById('diaryPage');
+    const entryPageBtn = document.getElementById('entryPageBtn');
+    const diaryPageBtn = document.getElementById('diaryPageBtn');
+    const entryHeading = document.getElementById('entryHeading');
+    const appStatusText = document.getElementById('appStatusText');
 
     const authEmail = document.getElementById('authEmail');
     const authPassword = document.getElementById('authPassword');
@@ -792,6 +897,8 @@
     const auraFlag = document.getElementById('auraFlag');
     const medicineNotes = document.getElementById('medicineNotes');
     const auraNotes = document.getElementById('auraNotes');
+    const insomniaFlag = document.getElementById('insomniaFlag');
+    const insomniaNotes = document.getElementById('insomniaNotes');
     const saveBtn = document.getElementById('saveBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const todayBtn = document.getElementById('todayBtn');
@@ -806,15 +913,77 @@
     const statLast = document.getElementById('statLast');
     const calendarGrid = document.getElementById('calendarGrid');
     const calendarTitle = document.getElementById('calendarTitle');
-    const prevMonthBtn = document.getElementById('prevMonthBtn');
-    const nextMonthBtn = document.getElementById('nextMonthBtn');
     const chartTitle = document.getElementById('chartTitle');
+    const historyTitle = document.getElementById('historyTitle');
 
     let data = loadLocalData();
     let selectedDate = todayString();
     let currentCalendarDate = new Date();
     let chart = null;
     let currentUser = null;
+
+    function createEntriesRepository(client) {
+      const table = 'headache_entries';
+
+      return {
+        async listByDate(userId) {
+          const { data: rows, error } = await client
+            .from(table)
+            .select('*')
+            .eq('user_id', userId)
+            .order('entry_date', { ascending: true });
+
+          if (error) return { entriesByDate: null, error };
+
+          const entriesByDate = {};
+          for (const row of rows || []) {
+            entriesByDate[row.entry_date] = {
+              level: row.pain_level ?? null,
+              startTime: row.start_time || '',
+              endTime: row.end_time || '',
+              headacheNotes: row.headache_notes || '',
+              medicine: !!row.medicine,
+              cycle: !!row.cycle,
+              aura: !!row.aura,
+              insomnia: !!row.insomnia,
+              medicineNotes: row.medicine_notes || '',
+              auraNotes: row.aura_notes || '',
+              insomniaNotes: row.insomnia_notes || '',
+              updatedAt: row.updated_at || null
+            };
+          }
+
+          return { entriesByDate, error: null };
+        },
+
+        save(userId, date, entry) {
+          const row = {
+            user_id: userId,
+            entry_date: date,
+            pain_level: entry.level,
+            start_time: entry.startTime || null,
+            end_time: entry.endTime || null,
+            headache_notes: entry.headacheNotes || null,
+            medicine: entry.medicine,
+            cycle: entry.cycle,
+            aura: entry.aura,
+            insomnia: entry.insomnia,
+            medicine_notes: entry.medicineNotes || null,
+            aura_notes: entry.auraNotes || null,
+            insomnia_notes: entry.insomniaNotes || null
+          };
+
+          return client.from(table).upsert([row], { onConflict: 'user_id,entry_date' });
+        },
+
+        remove(userId, date) {
+          return client.from(table)
+            .delete()
+            .eq('user_id', userId)
+            .eq('entry_date', date);
+        }
+      };
+    }
 
     function todayString() {
       const now = new Date();
@@ -840,6 +1009,7 @@
 
     function setStatus(message) {
       statusText.textContent = message;
+      appStatusText.textContent = message;
     }
 
     function setAuthStatus(message) {
@@ -872,22 +1042,40 @@
       renderAll();
     }
 
+    function clearInsomniaFields() {
+      insomniaFlag.checked = false;
+      insomniaNotes.value = '';
+    }
+
     function resetEntryForm() {
       entryDate.value = todayString();
-      painLevel.value = '';
-      startTime.value = '';
-      endTime.value = '';
-      headacheNotes.value = '';
-      medicineFlag.checked = false;
-      cycleFlag.checked = false;
-      auraFlag.checked = false;
-      medicineNotes.value = '';
-      auraNotes.value = '';
+      fillEntryForm();
+    }
+
+    function fillEntryForm(entry = {}) {
+      painLevel.value = entry.level ?? '';
+      startTime.value = entry.startTime || '';
+      endTime.value = entry.endTime || '';
+      headacheNotes.value = entry.headacheNotes || '';
+      medicineFlag.checked = !!entry.medicine;
+      cycleFlag.checked = !!entry.cycle;
+      auraFlag.checked = !!entry.aura;
+      insomniaFlag.checked = !!entry.insomnia;
+      medicineNotes.value = entry.medicineNotes || '';
+      auraNotes.value = entry.auraNotes || '';
+      insomniaNotes.value = entry.insomniaNotes || '';
+    }
+
+    function hasEntryDetails(entry) {
+      return entry.level != null || entry.startTime || entry.endTime || entry.headacheNotes ||
+        entry.medicine || entry.cycle || entry.aura || entry.insomnia ||
+        entry.medicineNotes || entry.auraNotes || entry.insomniaNotes;
     }
 
     function getSortedEntries() {
       return Object.entries(data)
         .map(([date, value]) => ({ date, ...value }))
+        .filter(hasEntryDetails)
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
@@ -930,15 +1118,13 @@
       }
     }
 
-    function getEntriesForCurrentMonth() {
-      const year = currentCalendarDate.getFullYear();
-      const month = currentCalendarDate.getMonth();
+    function isInDisplayedMonth(dateStr) {
+      const [year, month] = dateStr.split('-').map(Number);
+      return year === currentCalendarDate.getFullYear() && month === currentCalendarDate.getMonth() + 1;
+    }
 
-      return getSortedEntries().filter((entry) => {
-        const parts = entry.date.split('-').map(Number);
-        const d = new Date(parts[0], parts[1] - 1, parts[2]);
-        return d.getFullYear() === year && d.getMonth() === month;
-      });
+    function getEntriesForCurrentMonth() {
+      return getSortedEntries().filter((entry) => isInDisplayedMonth(entry.date));
     }
 
     function escapeHtml(text) {
@@ -990,7 +1176,7 @@
           console.error('Errore lettura sessione:', sessionError);
           showAuthView();
           setAuthStatus('Errore autenticazione');
-          setStatus('Errore lettura sessione Supabase.');
+          setStatus('Impossibile verificare l’accesso. Riprova.');
           return false;
         }
 
@@ -1006,17 +1192,17 @@
 
         if (!user) {
           showAuthView();
-          setStatus('Sessione trovata ma utente non disponibile.');
+          setStatus('Accedi di nuovo per aprire il diario.');
           return false;
         }
 
         showAppView();
-        setStatus('Accesso effettuato.');
+        setStatus('');
         return true;
       } catch (error) {
         console.error('Errore initUser:', error);
         showAuthView();
-        setStatus('Errore inizializzazione Supabase.');
+        setStatus('Impossibile verificare l’accesso. Riprova.');
         return false;
       }
     }
@@ -1046,7 +1232,7 @@
 
         if (error) {
           console.error('Errore registrazione:', error);
-          setStatus(`Registrazione fallita: ${error.message}`);
+          setStatus('Registrazione non riuscita. Controlla email e password e riprova.');
           return;
         }
 
@@ -1059,7 +1245,6 @@
         await refreshCurrentUser();
         showAppView();
         await loadEntriesFromSupabase();
-        setStatus('Registrazione completata con accesso effettuato.');
       } catch (error) {
         console.error('Errore signUpWithEmail:', error);
         setStatus('Errore durante la registrazione.');
@@ -1083,14 +1268,15 @@
 
         if (error) {
           console.error('Errore login:', error);
-          setStatus(`Accesso fallito: ${error.message}`);
+          setStatus(error.code === 'email_not_confirmed'
+            ? 'Conferma il tuo indirizzo email prima di accedere.'
+            : 'Accesso non riuscito. Controlla email e password e riprova.');
           return;
         }
 
         await refreshCurrentUser();
         showAppView();
         await loadEntriesFromSupabase();
-        setStatus('Accesso effettuato con successo.');
       } catch (error) {
         console.error('Errore signInWithEmail:', error);
         setStatus('Errore durante il login.');
@@ -1103,7 +1289,7 @@
 
         if (error) {
           console.error('Errore logout:', error);
-          setStatus(`Logout fallito: ${error.message}`);
+          setStatus('Impossibile uscire. Riprova.');
           return;
         }
 
@@ -1112,10 +1298,10 @@
         resetEntryForm();
         updateUserInfo();
         showAuthView();
-        setStatus('Logout effettuato.');
+        setStatus('');
       } catch (error) {
         console.error('Errore signOutUser:', error);
-        setStatus('Errore durante il logout.');
+        setStatus('Impossibile uscire. Riprova.');
       }
     }
 
@@ -1126,75 +1312,65 @@
       }
 
       try {
-        const { data: rows, error } = await supabaseClient
-          .from('headache_entries')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('entry_date', { ascending: true });
+        const { entriesByDate, error } = await entriesRepository.listByDate(currentUser.id);
 
         if (error) {
           console.error('Errore lettura entries:', error);
-          setStatus('Errore caricamento dati da Supabase.');
+          setStatus('Impossibile aprire il diario. Riprova.');
           return;
         }
 
-        const freshData = {};
-
-        for (const row of rows || []) {
-          const key = row.entry_date;
-          freshData[key] = {
-            level: row.pain_level ?? 0,
-            startTime: row.start_time || '',
-            endTime: row.end_time || '',
-            headacheNotes: row.headache_notes || '',
-            medicine: !!row.medicine,
-            cycle: !!row.cycle,
-            aura: !!row.aura,
-            medicineNotes: row.medicine_notes || '',
-            auraNotes: row.aura_notes || '',
-            updatedAt: row.updated_at || null
-          };
-        }
-
-        data = freshData;
+        data = entriesByDate;
         saveLocalData();
         renderAll();
         selectDate(todayString());
-        setStatus('Dati caricati da Supabase.');
+        setStatus('');
       } catch (error) {
         console.error('Errore loadEntriesFromSupabase:', error);
-        setStatus('Errore durante il caricamento da Supabase.');
+        setStatus('Impossibile aprire il diario. Riprova.');
       }
     }
 
     function selectDate(dateStr) {
       selectedDate = dateStr;
       entryDate.value = dateStr;
-      const entry = data[dateStr];
-
-      if (entry) {
-        painLevel.value = entry.level;
-        startTime.value = entry.startTime || '';
-        endTime.value = entry.endTime || '';
-        headacheNotes.value = entry.headacheNotes || '';
-        medicineFlag.checked = !!entry.medicine;
-        cycleFlag.checked = !!entry.cycle;
-        auraFlag.checked = !!entry.aura;
-        medicineNotes.value = entry.medicineNotes || '';
-        auraNotes.value = entry.auraNotes || '';
-      } else {
-        painLevel.value = '';
-        startTime.value = '';
-        endTime.value = '';
-        headacheNotes.value = '';
-        medicineFlag.checked = false;
-        cycleFlag.checked = false;
-        auraFlag.checked = false;
-        medicineNotes.value = '';
-        auraNotes.value = '';
-      }
-
+      fillEntryForm(data[dateStr] ?? undefined);
       renderCalendar();
+    }
+
+    function openAppPage(page) {
+      if (!page.hidden) return;
+
+      const inDiary = page === diaryPage;
+      entryPage.hidden = inDiary;
+      diaryPage.hidden = !inDiary;
+      entryPageBtn.setAttribute('aria-pressed', String(!inDiary));
+      diaryPageBtn.setAttribute('aria-pressed', String(inDiary));
+      window.scrollTo(0, 0);
+      if (inDiary) {
+        renderChart();
+        renderCalendar();
+        renderHistory();
+      }
+    }
+
+    function editDiaryDate(dateStr) {
+      selectDateInDisplayedMonth(dateStr);
+      openAppPage(entryPage);
+      entryHeading.focus({ preventScroll: true });
+    }
+
+    function showMonthForDate(dateStr) {
+      const [year, month] = dateStr.split('-').map(Number);
+      currentCalendarDate = new Date(year, month - 1, 1);
+    }
+
+    function selectDateInDisplayedMonth(dateStr) {
+      showMonthForDate(dateStr);
+      selectDate(dateStr);
+      renderStats();
+      renderChart();
+      renderHistory();
     }
 
     async function saveEntry() {
@@ -1205,14 +1381,14 @@
       }
 
       const date = entryDate.value;
-      const level = Number(painLevel.value);
+      const level = painLevel.value === '' ? null : Number(painLevel.value);
 
       if (!date) {
         setStatus('Seleziona una data.');
         return;
       }
 
-      if (!Number.isInteger(level) || level < 0 || level > 10) {
+      if (painLevel.validity.badInput || (level !== null && (!Number.isInteger(level) || level < 0 || level > 10))) {
         setStatus('Inserisci un valore intero tra 0 e 10.');
         return;
       }
@@ -1225,48 +1401,38 @@
         medicine: medicineFlag.checked,
         cycle: cycleFlag.checked,
         aura: auraFlag.checked,
+        insomnia: insomniaFlag.checked,
         medicineNotes: medicineNotes.value.trim(),
         auraNotes: auraNotes.value.trim(),
+        insomniaNotes: insomniaNotes.value.trim(),
         updatedAt: new Date().toISOString()
       };
 
-      data[date] = entryPayload;
-      saveLocalData();
-      renderAll();
-      selectDate(date);
+      if (!data[date] && !hasEntryDetails(entryPayload)) {
+        setStatus('Compila almeno un campo per salvare il giorno.');
+        return;
+      }
       setStatus(`Salvataggio in corso per ${formatDate(date)}...`);
 
       try {
-        const { error } = await supabaseClient
-          .from('headache_entries')
-          .upsert([
-            {
-              user_id: currentUser.id,
-              entry_date: date,
-              pain_level: entryPayload.level,
-              start_time: entryPayload.startTime || null,
-              end_time: entryPayload.endTime || null,
-              headache_notes: entryPayload.headacheNotes || null,
-              medicine: entryPayload.medicine,
-              cycle: entryPayload.cycle,
-              aura: entryPayload.aura,
-              medicine_notes: entryPayload.medicineNotes || null,
-              aura_notes: entryPayload.auraNotes || null
-            }
-          ], {
-            onConflict: 'user_id,entry_date'
-          });
+        const { error } = await entriesRepository.save(currentUser.id, date, entryPayload);
 
         if (error) {
           console.error('Errore saveEntry:', error);
-          setStatus('Errore salvataggio su Supabase.');
+          setStatus('Salvataggio non riuscito. Riprova.');
           return;
         }
 
-        setStatus(`Dato salvato su Supabase per ${formatDate(date)}.`);
+        data[date] = entryPayload;
+        saveLocalData();
+        if (!entryPage.hidden && entryDate.value === date) {
+          showMonthForDate(date);
+        }
+        renderAll();
+        setStatus(`Giorno salvato (${formatDate(date)}).`);
       } catch (error) {
         console.error('Errore saveEntry catch:', error);
-        setStatus('Errore salvataggio su Supabase.');
+        setStatus('Salvataggio non riuscito. Riprova.');
       }
     }
 
@@ -1285,59 +1451,70 @@
       }
 
       if (!data[date]) {
+        if (date === selectedDate && (insomniaFlag.checked || insomniaNotes.value.trim())) {
+          clearInsomniaFields();
+          renderAll();
+          setStatus('Insonnia rimossa.');
+          return;
+        }
         setStatus('Per questa data non ci sono dati da eliminare.');
         return;
       }
 
-      delete data[date];
-      saveLocalData();
-      renderAll();
-      selectDate(date);
+      const userId = currentUser.id;
       setStatus(`Eliminazione in corso per ${formatDate(date)}...`);
 
       try {
-        const { error } = await supabaseClient
-          .from('headache_entries')
-          .delete()
-          .eq('user_id', currentUser.id)
-          .eq('entry_date', date);
+        const { error } = await entriesRepository.remove(userId, date);
+
+        if (currentUser?.id !== userId) return;
 
         if (error) {
           console.error('Errore deleteEntry:', error);
-          setStatus('Errore eliminazione su Supabase.');
+          setStatus('Impossibile eliminare il giorno. Riprova.');
           return;
         }
 
-        setStatus(`Dato eliminato da Supabase per ${formatDate(date)}.`);
+        delete data[date];
+        saveLocalData();
+        if (selectedDate === date && entryDate.value === date) {
+          selectDate(date);
+        }
+        renderAll();
+        setStatus(`Giorno eliminato (${formatDate(date)}).`);
       } catch (error) {
         console.error('Errore deleteEntry catch:', error);
-        setStatus('Errore eliminazione su Supabase.');
+        if (currentUser?.id === userId) {
+          setStatus('Impossibile eliminare il giorno. Riprova.');
+        }
       }
     }
 
     function renderStats() {
       const entries = getEntriesForCurrentMonth();
       statDays.textContent = entries.length;
+      const ratings = entries.filter((entry) => entry.level != null);
 
-      if (!entries.length) {
-        statAvg.textContent = '0';
-        statLast.textContent = '-';
+      if (!ratings.length) {
+        statAvg.textContent = '';
+        statLast.textContent = '';
         return;
       }
 
-      const avg = entries.reduce((sum, e) => sum + e.level, 0) / entries.length;
+      const avg = ratings.reduce((sum, entry) => sum + entry.level, 0) / ratings.length;
       statAvg.textContent = avg.toFixed(1);
-      statLast.textContent = entries[entries.length - 1].level;
+      statLast.textContent = ratings[ratings.length - 1].level;
     }
 
     function renderHistory() {
-      const entries = getSortedEntries().slice().reverse();
+      historyTitle.textContent = `Storico ${capitalize(monthName(currentCalendarDate))}`;
+      const entries = getEntriesForCurrentMonth().reverse();
       historyTableBody.innerHTML = '';
 
       if (!entries.length) {
         historyTableBody.innerHTML = `
           <tr class="empty-row">
-            <td colspan="3" class="muted">Ancora nessun dato salvato.</td>
+            <td colspan="3" class="muted">Nessuna registrazione per questo mese.</td>
           </tr>
         `;
         return;
@@ -1350,6 +1527,7 @@
         if (entry.medicine) badges.push('<span class="badge medicine">Medicine</span>');
         if (entry.cycle) badges.push('<span class="badge cycle">Ciclo</span>');
         if (entry.aura) badges.push('<span class="badge aura">Aura</span>');
+        if (entry.insomnia) badges.push('<span class="badge insomnia">Insonnia</span>');
 
         if (badges.length) {
           contentParts.push(`<div>${badges.join('')}</div>`);
@@ -1372,49 +1550,19 @@
           contentParts.push(`<div class="muted"><strong>Note Aura:</strong> ${escapeHtml(entry.auraNotes)}</div>`);
         }
 
-        if (!contentParts.length) {
-          contentParts.push('<span class="muted">-</span>');
+        if (entry.insomniaNotes) {
+          contentParts.push(`<div class="muted"><strong>Note Insonnia:</strong> ${escapeHtml(entry.insomniaNotes)}</div>`);
         }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td data-label="Data">${formatDate(entry.date)}</td>
-          <td data-label="Dolore"><strong>${entry.level}</strong></td>
+          <td data-label="Dolore"><strong>${entry.level ?? ''}</strong></td>
           <td data-label="Flag e note">${contentParts.join('')}</td>
         `;
-        tr.addEventListener('click', () => selectDate(entry.date));
+        tr.addEventListener('click', () => editDiaryDate(entry.date));
         historyTableBody.appendChild(tr);
       }
-    }
-
-    function buildHeadacheSeries(labels, entryMap) {
-      return labels.map((day) => {
-        const directEntry = entryMap.get(day);
-        return directEntry ? directEntry.level : null;
-      });
-    }
-
-    function getMonthEntries(monthDate) {
-      const year = monthDate.getFullYear();
-      const month = monthDate.getMonth() + 1;
-
-      return getSortedEntries().filter((entry) => {
-        const [entryYear, entryMonth] = entry.date.split('-').map(Number);
-        return entryYear === year && entryMonth === month;
-      });
-    }
-
-    function buildCycleSeries(labels, entryMap) {
-      return labels.map((day) => {
-        const entry = entryMap.get(day);
-        if (entry?.cycle) return 2;
-
-        const prevEntry = entryMap.get(day - 1);
-        const nextEntry = entryMap.get(day + 1);
-
-        if (prevEntry?.cycle && nextEntry?.cycle) return 2;
-        return null;
-      });
     }
 
     function renderChart() {
@@ -1432,10 +1580,12 @@
       }
 
       const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-      const headacheSeries = buildHeadacheSeries(labels, entryMap);
+      const headacheSeries = labels.map((day) => entryMap.get(day)?.level ?? null);
       const medicineSeries = labels.map((day) => entryMap.get(day)?.medicine ? 1 : null);
-      const cycleSeries = buildCycleSeries(labels, entryMap);
+      const cycleSeries = labels.map((day) => entryMap.get(day)?.cycle ? 2 : null);
       const auraSeries = labels.map((day) => entryMap.get(day)?.aura ? 3 : null);
+      const insomniaSeries = labels.map((day) => entryMap.get(day)?.insomnia ? 4 : null);
+      const insomniaColor = getComputedStyle(document.documentElement).getPropertyValue('--insomnia').trim();
 
       const ctx = document.getElementById('headacheChart').getContext('2d');
       if (chart) chart.destroy();
@@ -1466,8 +1616,8 @@
               fill: true,
               tension: 0.28,
               spanGaps: false,
-              pointRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 6 : 0,
-              pointHoverRadius: (context) => entryMap.has(labels[context.dataIndex]) ? 7 : 0,
+              pointRadius: 6,
+              pointHoverRadius: 7,
               pointBackgroundColor: '#ff5ca8',
               pointBorderColor: '#ff5ca8',
               pointBorderWidth: 0,
@@ -1500,6 +1650,17 @@
               pointBackgroundColor: '#c77dff',
               spanGaps: false,
               order: 3
+            },
+            {
+              type: 'line',
+              label: 'Insonnia',
+              data: insomniaSeries,
+              borderColor: insomniaColor,
+              backgroundColor: `${insomniaColor}40`,
+              pointBackgroundColor: insomniaColor,
+              pointStyle: 'rectRot',
+              pointRadius: 7,
+              order: 0
             }
           ]
         },
@@ -1525,19 +1686,12 @@
                   const entry = entryMap.get(day);
 
                   if (context.dataset.label === 'Mal di testa') {
-                    if (entry) {
-                      const details = [`Mal di testa: ${entry.level}`];
-                      if (entry.startTime) details.push(`Inizio ${entry.startTime}`);
-                      if (entry.endTime) details.push(`Fine ${entry.endTime}`);
-                      if (entry.headacheNotes) details.push(entry.headacheNotes);
-                      return details.join(' · ');
-                    }
-
-                    if (context.raw !== null) {
-                      return `Mal di testa stimato: ${Number(context.raw).toFixed(1)}`;
-                    }
-
-                    return '';
+                    if (!entry || entry.level == null) return '';
+                    const details = [`Mal di testa: ${entry.level}`];
+                    if (entry.startTime) details.push(`Inizio ${entry.startTime}`);
+                    if (entry.endTime) details.push(`Fine ${entry.endTime}`);
+                    if (entry.headacheNotes) details.push(entry.headacheNotes);
+                    return details.join(' · ');
                   }
 
                   if (context.dataset.label === 'Medicine') {
@@ -1546,14 +1700,16 @@
                   }
 
                   if (context.dataset.label === 'Ciclo') {
-                    if (entry?.cycle) return 'Ciclo';
-                    if (context.raw !== null) return 'Ciclo interpolato';
-                    return '';
+                    return entry?.cycle ? 'Ciclo' : '';
                   }
 
                   if (context.dataset.label === 'Aura') {
                     if (!entry) return '';
                     return entry.auraNotes ? `Aura: ${entry.auraNotes}` : 'Aura';
+                  }
+
+                  if (context.dataset.label === 'Insonnia') {
+                    return entry?.insomniaNotes ? `Insonnia: ${entry.insomniaNotes}` : 'Insonnia';
                   }
 
                   return '';
@@ -1583,12 +1739,18 @@
     }
 
     function exportPdf() {
-      if (!window.jspdf?.jsPDF) {
-        setStatus('Impossibile generare il PDF: libreria non disponibile.');
+      const PdfDocument = window.jspdf?.jsPDF;
+      if (!PdfDocument) {
+        setStatus('Impossibile scaricare il PDF. Riprova.');
         return;
       }
 
-      const entries = getSortedEntries();
+      const pdf = buildDiaryPdf(PdfDocument, getSortedEntries(), currentCalendarDate);
+      pdf.save(`riassunto-headache-${new Date().toISOString().slice(0, 10)}.pdf`);
+      setStatus('PDF scaricato con successo.');
+    }
+
+    function getReportMonths(entries, fallbackMonth) {
       const months = [];
 
       // Inserisce tutti i mesi compresi tra il primo e l'ultimo dato,
@@ -1608,12 +1770,17 @@
         }
       } else {
         months.push({
-          year: currentCalendarDate.getFullYear(),
-          month: currentCalendarDate.getMonth() + 1
+          year: fallbackMonth.getFullYear(),
+          month: fallbackMonth.getMonth() + 1
         });
       }
 
-      const pdf = new window.jspdf.jsPDF({
+      return months;
+    }
+
+    function buildDiaryPdf(PdfDocument, entries, fallbackMonth) {
+      const months = getReportMonths(entries, fallbackMonth);
+      const pdf = new PdfDocument({
         orientation: 'landscape',
         unit: 'mm',
         format: 'a4'
@@ -1982,8 +2149,7 @@
         drawFooter();
       });
 
-      pdf.save(`riassunto-headache-${new Date().toISOString().slice(0, 10)}.pdf`);
-      setStatus('PDF scaricato con successo.');
+      return pdf;
     }
 
     function renderCalendar() {
@@ -2034,16 +2200,12 @@
           ${entry?.medicine ? '<span class="dot medicine" title="Medicine"></span>' : ''}
           ${entry?.cycle ? '<span class="dot cycle" title="Ciclo"></span>' : ''}
           ${entry?.aura ? '<span class="dot aura" title="Aura"></span>' : ''}
+          ${entry?.insomnia ? '<span class="dot insomnia" title="Insonnia"></span>' : ''}
         </div>
-        <div class="day-score">${entry ? entry.level : ''}</div>
+        <div class="day-score">${entry?.level ?? ''}</div>
       `;
 
-      div.addEventListener('click', () => {
-        currentCalendarDate = new Date(y, dateObj.getMonth(), 1);
-        selectDate(dateStr);
-        renderStats();
-        renderChart();
-      });
+      div.addEventListener('click', () => editDiaryDate(dateStr));
 
       return div;
     }
@@ -2058,6 +2220,8 @@
     signUpBtn.addEventListener('click', signUpWithEmail);
     signInBtn.addEventListener('click', signInWithEmail);
     signOutBtn.addEventListener('click', signOutUser);
+    entryPageBtn.addEventListener('click', () => openAppPage(entryPage));
+    diaryPageBtn.addEventListener('click', () => openAppPage(diaryPage));
     saveBtn.addEventListener('click', saveEntry);
     deleteBtn.addEventListener('click', deleteEntry);
 
@@ -2072,36 +2236,20 @@
 
     exportPdfBtn.addEventListener('click', exportPdf);
 
-    todayBtn.addEventListener('click', () => {
-      currentCalendarDate = new Date();
-      selectDate(todayString());
-      renderStats();
-      renderChart();
-    });
+    todayBtn.addEventListener('click', () => selectDateInDisplayedMonth(todayString()));
 
     entryDate.addEventListener('change', () => {
       if (entryDate.value) {
-        const [y, m] = entryDate.value.split('-');
-        currentCalendarDate = new Date(Number(y), Number(m) - 1, 1);
-        selectDate(entryDate.value);
-        renderStats();
-        renderChart();
+        selectDateInDisplayedMonth(entryDate.value);
       }
     });
 
-    prevMonthBtn.addEventListener('click', () => {
-      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1);
-      renderCalendar();
-      renderChart();
-      renderStats();
-    });
-
-    nextMonthBtn.addEventListener('click', () => {
-      currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1);
-      renderCalendar();
-      renderChart();
-      renderStats();
-    });
+    for (const button of diaryPage.querySelectorAll('[data-month-step]')) {
+      button.addEventListener('click', () => {
+        currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + Number(button.dataset.monthStep), 1);
+        renderAll();
+      });
+    }
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       currentUser = session?.user || null;
