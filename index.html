@@ -23,6 +23,8 @@
       --cycle: #ff3b6b;
       --aura: #c77dff;
       --insomnia: #58b9ee;
+      --pressure: #2b8f89;
+      --pressure-diastolic: #7565be;
       --today: #ffd6e7;
     }
 
@@ -92,10 +94,10 @@
       z-index: 5;
       bottom: calc(12px + env(safe-area-inset-bottom, 0px));
       left: 50%;
-      width: min(360px, calc(100% - 24px));
+      width: min(450px, calc(100% - 24px));
       transform: translateX(-50%);
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 4px;
       padding: 4px;
       border: 1px solid var(--border);
@@ -106,6 +108,7 @@
 
     .app-nav button {
       min-height: 44px;
+      padding-inline: 6px;
       border-radius: 13px;
       background: transparent;
       color: var(--text);
@@ -147,6 +150,42 @@
       gap: 12px;
     }
 
+    .pressure-entry {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .pressure-entry h3 { margin: 0 0 12px; }
+
+    .pressure-reading {
+      min-width: 0;
+      margin: 0 0 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .pressure-reading legend { padding: 0 5px; }
+
+    .pressure-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .pressure-fields label { min-width: 0; margin: 0; }
+    .pressure-fields input { display: block; margin-top: 7px; }
+
+    .pressure-reading-actions {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .pressure-reading-actions button { padding: 9px 12px; font-size: 14px; }
+
     label {
       display: block;
       margin-bottom: 7px;
@@ -158,6 +197,7 @@
     input[type="email"],
     input[type="password"],
     input[type="time"],
+    input.pressure-time[type="text"],
     textarea {
       width: 100%;
       padding: 12px 14px;
@@ -180,6 +220,7 @@
     input[type="email"]:focus,
     input[type="password"]:focus,
     input[type="time"]:focus,
+    input.pressure-time[type="text"]:focus,
     textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(255, 92, 168, 0.12);
@@ -407,8 +448,57 @@
     }
 
     .chart-inner {
+      position: relative;
       min-width: 700px;
+      height: clamp(340px, 55vh, 460px);
     }
+
+    #headacheChart { max-height: none; }
+
+    .pressure-controls {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .pressure-modes {
+      display: flex;
+      padding: 4px;
+      gap: 4px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .pressure-modes button {
+      background: transparent;
+      color: var(--text);
+      border-radius: 12px;
+    }
+
+    .pressure-modes button[aria-pressed="true"] { background: #fbd8e9; }
+    .pressure-modes button:focus-visible { outline: 2px solid #852453; outline-offset: -3px; }
+    .pressure-date-picker { max-width: 100%; }
+    .pressure-date-picker[hidden] { display: none; }
+
+    .pressure-date-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pressure-date-controls input { min-width: 0; }
+    .pressure-date-controls button {
+      flex: 0 0 44px;
+      min-height: 44px;
+      padding: 8px;
+    }
+
+    .pressure-chart-track { position: relative; height: 230px; }
+    .pressure-pain-track { position: relative; height: 94px; }
+    #pressurePage[data-mode="month"] .pressure-pain-track { height: clamp(180px, 32vh, 270px); }
+    .pressure-summary { margin: 8px 0 0; font-size: 14px; }
+    .pressure-history { margin: 4px 0 0; padding-left: 18px; }
 
     canvas {
       width: 100% !important;
@@ -638,6 +728,9 @@
       .diary-actions { flex-direction: row; }
       .diary-actions button { width: auto; flex: 1; }
       .time-grid { grid-template-columns: 1fr; }
+      .pressure-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pressure-fields label:last-child { grid-column: 1 / -1; }
+      .pressure-reading-actions button { width: auto; }
       .chart-wrap {
         margin-left: -18px;
         margin-right: -18px;
@@ -689,6 +782,7 @@
       <nav class="app-nav" aria-label="Schermate del tracker">
         <button type="button" id="entryPageBtn" aria-controls="entryPage" aria-pressed="true">Inserisci</button>
         <button type="button" id="diaryPageBtn" aria-controls="diaryPage" aria-pressed="false">Diario</button>
+        <button type="button" id="pressurePageBtn" aria-controls="pressurePage" aria-pressed="false">Pressione</button>
       </nav>
       <p class="app-status" id="appStatusText" role="status"></p>
 
@@ -760,6 +854,26 @@
               <label for="insomniaNotes">Note su Insonnia</label>
               <textarea id="insomniaNotes" placeholder="Es. difficoltà ad addormentarsi, risvegli, possibile motivo..."></textarea>
             </div>
+
+            <section class="pressure-entry" aria-labelledby="pressureEntryTitle">
+              <h3 id="pressureEntryTitle">Pressione arteriosa</h3>
+              <div id="pressureReadings"></div>
+              <button type="button" class="secondary" id="addPressureReadingBtn">Aggiungi misurazione</button>
+              <template id="pressureReadingTemplate">
+                <fieldset class="pressure-reading">
+                  <legend>Misurazione</legend>
+                  <div class="pressure-fields">
+                    <label>Sistolica (mmHg)<input type="number" min="1" step="1" inputmode="numeric" data-pressure-field="systolic" /></label>
+                    <label>Diastolica (mmHg)<input type="number" min="1" step="1" inputmode="numeric" data-pressure-field="diastolic" /></label>
+                    <label>Ora della misurazione<input class="pressure-time" type="time" data-pressure-field="measuredAt" /></label>
+                  </div>
+                  <div class="pressure-reading-actions">
+                    <button type="button" class="secondary" data-pressure-action="now">Usa ora attuale</button>
+                    <button type="button" class="secondary" data-pressure-action="remove">Rimuovi</button>
+                  </div>
+                </fieldset>
+              </template>
+            </section>
 
             <div class="actions">
               <button class="primary" id="saveBtn">Salva giorno</button>
@@ -859,6 +973,45 @@
             </div>
           </section>
         </main>
+
+        <section id="pressurePage" aria-label="Pressione" hidden>
+          <section class="card" aria-labelledby="pressureChartTitle">
+            <h2 id="pressureChartTitle">Pressione e mal di testa</h2>
+            <div class="pressure-controls">
+              <div class="pressure-modes" role="group" aria-label="Periodo del grafico della pressione">
+                <button type="button" id="pressureDayModeBtn" aria-pressed="true">Giorno</button>
+                <button type="button" id="pressureMonthModeBtn" aria-pressed="false">Mese</button>
+              </div>
+              <div class="pressure-date-picker" id="pressureDatePicker">
+                <label for="pressureDate">Giorno visualizzato</label>
+                <div class="pressure-date-controls">
+                  <button type="button" class="secondary" data-day-step="-1" aria-label="Giorno precedente">◀</button>
+                  <input type="date" id="pressureDate" />
+                  <button type="button" class="secondary" data-day-step="1" aria-label="Giorno successivo">▶</button>
+                </div>
+              </div>
+            </div>
+            <h3 class="muted" id="pressurePeriodTitle"></h3>
+            <p class="muted pressure-summary" id="pressureDraftNotice" hidden></p>
+            <div class="pressure-chart-track">
+              <canvas id="pressureChart" role="img" aria-label="Misurazioni di pressione sistolica e diastolica"></canvas>
+            </div>
+            <p class="empty-state pressure-summary" id="pressureChartEmpty" hidden></p>
+            <div class="pressure-pain-track">
+              <canvas id="pressurePainChart" role="img" aria-label="Mal di testa nello stesso periodo"></canvas>
+            </div>
+            <p class="muted pressure-summary" id="pressurePainSummary"></p>
+            <div class="legend">
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--pressure);"></span> Sistolica</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--pressure-diastolic);"></span> Diastolica</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: var(--primary);"></span> Mal di testa</div>
+            </div>
+            <div class="calendar-nav chart-month-nav" role="group" aria-label="Mese del grafico della pressione">
+              <button type="button" class="secondary" data-month-step="-1" aria-label="Mese precedente">◀</button>
+              <button type="button" class="secondary" data-month-step="1" aria-label="Mese successivo">▶</button>
+            </div>
+          </section>
+        </section>
       </div>
     </section>
   </div>
@@ -870,14 +1023,19 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_BOUA1jGxFv-uoCG8Ho_1Ig__ch4Yxyg';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const entriesRepository = createEntriesRepository(supabaseClient);
+    const entriesRepository = createEntriesRepository(supabaseClient, () => currentUser?.id);
 
     const authView = document.getElementById('authView');
     const appView = document.getElementById('appView');
     const entryPage = document.getElementById('entryPage');
     const diaryPage = document.getElementById('diaryPage');
+    const pressurePage = document.getElementById('pressurePage');
     const entryPageBtn = document.getElementById('entryPageBtn');
     const diaryPageBtn = document.getElementById('diaryPageBtn');
+    const pressurePageBtn = document.getElementById('pressurePageBtn');
+    const appPages = [
+      [entryPage, entryPageBtn], [diaryPage, diaryPageBtn], [pressurePage, pressurePageBtn]
+    ];
     const entryHeading = document.getElementById('entryHeading');
     const appStatusText = document.getElementById('appStatusText');
 
@@ -899,6 +1057,15 @@
     const auraNotes = document.getElementById('auraNotes');
     const insomniaFlag = document.getElementById('insomniaFlag');
     const insomniaNotes = document.getElementById('insomniaNotes');
+    const pressureReadings = document.getElementById('pressureReadings');
+    const pressureReadingTemplate = document.getElementById('pressureReadingTemplate');
+    const addPressureReadingBtn = document.getElementById('addPressureReadingBtn');
+    const pressureDayModeBtn = document.getElementById('pressureDayModeBtn');
+    const pressureMonthModeBtn = document.getElementById('pressureMonthModeBtn');
+    const pressureDatePicker = document.getElementById('pressureDatePicker');
+    const pressureDate = document.getElementById('pressureDate');
+    const pressurePeriodTitle = document.getElementById('pressurePeriodTitle');
+    const pressureDraftNotice = document.getElementById('pressureDraftNotice');
     const saveBtn = document.getElementById('saveBtn');
     const deleteBtn = document.getElementById('deleteBtn');
     const todayBtn = document.getElementById('todayBtn');
@@ -916,22 +1083,34 @@
     const chartTitle = document.getElementById('chartTitle');
     const historyTitle = document.getElementById('historyTitle');
 
-    let data = loadLocalData();
+    let data = {};
     let selectedDate = todayString();
     let currentCalendarDate = new Date();
+    let pressureChartDate = selectedDate;
+    let pressureChartMode = 'day';
     let chart = null;
     let currentUser = null;
+    let entriesLoadId = 0;
 
-    function createEntriesRepository(client) {
+    function createEntriesRepository(client, getActiveUserId) {
       const table = 'headache_entries';
+      const listRows = (userId, columns) => client.from(table)
+        .select(columns)
+        .eq('user_id', userId)
+        .order('entry_date', { ascending: true });
+      const parsePressureRows = (rows) => sortPressureMeasurements((rows ?? []).map((measurement) => ({
+        measuredAt: measurement.measured_at.slice(0, 5),
+        systolic: measurement.systolic,
+        diastolic: measurement.diastolic
+      })));
 
       return {
         async listByDate(userId) {
-          const { data: rows, error } = await client
-            .from(table)
-            .select('*')
-            .eq('user_id', userId)
-            .order('entry_date', { ascending: true });
+          let { data: rows, error } = await listRows(userId, '*, blood_pressure_measurements(measured_at,systolic,diastolic)');
+          // A release can reach the browser before the new relationship enters the schema cache.
+          if (error?.code === 'PGRST200') {
+            ({ data: rows, error } = await listRows(userId, '*'));
+          }
 
           if (error) return { entriesByDate: null, error };
 
@@ -949,6 +1128,7 @@
               medicineNotes: row.medicine_notes || '',
               auraNotes: row.aura_notes || '',
               insomniaNotes: row.insomnia_notes || '',
+              pressureMeasurements: parsePressureRows(row.blood_pressure_measurements),
               updatedAt: row.updated_at || null
             };
           }
@@ -956,9 +1136,8 @@
           return { entriesByDate, error: null };
         },
 
-        save(userId, date, entry) {
+        save(userId, date, entry, previousPressure) {
           const row = {
-            user_id: userId,
             entry_date: date,
             pain_level: entry.level,
             start_time: entry.startTime || null,
@@ -973,7 +1152,31 @@
             insomnia_notes: entry.insomniaNotes || null
           };
 
-          return client.from(table).upsert([row], { onConflict: 'user_id,entry_date' });
+          if (previousPressure !== null) {
+            const savePressure = async () => {
+              if (getActiveUserId() !== userId) return {};
+              const { data: rows, error } = await client.from('blood_pressure_measurements')
+                .select('measured_at,systolic,diastolic')
+                .eq('user_id', userId)
+                .eq('entry_date', date);
+              if (getActiveUserId() !== userId) return {};
+              if (error) return { error };
+              if (pressureMeasurementsChanged(previousPressure, parsePressureRows(rows))) return { conflict: true };
+
+              return client.rpc('save_headache_day', {
+                p_entry: row,
+                p_pressure_measurements: entry.pressureMeasurements.map(({ measuredAt, systolic, diastolic }) => ({
+                  measured_at: measuredAt,
+                  systolic,
+                  diastolic
+                }))
+              });
+            };
+            const locks = window.navigator?.locks;
+            return locks ? locks.request(`headache-pressure:${userId}:${date}`, savePressure) : savePressure();
+          }
+
+          return client.from(table).upsert([{ user_id: userId, ...row }], { onConflict: 'user_id,entry_date' });
         },
 
         remove(userId, date) {
@@ -985,17 +1188,20 @@
       };
     }
 
-    function todayString() {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
+    function dateInputValue(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
       return `${y}-${m}-${d}`;
     }
 
-    function loadLocalData() {
+    function todayString() {
+      return dateInputValue(new Date());
+    }
+
+    function loadLocalData(userId) {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(`${STORAGE_KEY}:${userId}`);
         const parsed = raw ? JSON.parse(raw) : {};
         return typeof parsed === 'object' && parsed !== null ? parsed : {};
       } catch {
@@ -1004,7 +1210,7 @@
     }
 
     function saveLocalData() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      if (currentUser) localStorage.setItem(`${STORAGE_KEY}:${currentUser.id}`, JSON.stringify(data));
     }
 
     function setStatus(message) {
@@ -1036,10 +1242,25 @@
       }
     }
 
-    function clearLocalTrackerData() {
-      data = {};
-      saveLocalData();
-      renderAll();
+    function setCurrentUser(user) {
+      const accountChanged = currentUser?.id !== user?.id;
+      currentUser = user;
+      if (accountChanged) {
+        entriesLoadId++;
+        data = user ? loadLocalData(user.id) : {};
+        selectedDate = todayString();
+        pressureChartDate = selectedDate;
+        selectDate(selectedDate);
+        renderAll();
+      }
+      updateUserInfo();
+    }
+
+    function setEntryMutationPending(pending) {
+      for (const control of [saveBtn, deleteBtn, todayBtn, reloadBtn, entryDate]) {
+        control.disabled = pending;
+      }
+      if (pending) entriesLoadId++;
     }
 
     function clearInsomniaFields() {
@@ -1064,12 +1285,20 @@
       medicineNotes.value = entry.medicineNotes || '';
       auraNotes.value = entry.auraNotes || '';
       insomniaNotes.value = entry.insomniaNotes || '';
+      pressureReadings.replaceChildren();
+      for (const measurement of entry.pressureMeasurements ?? []) {
+        appendPressureReading(measurement);
+      }
     }
 
-    function hasEntryDetails(entry) {
+    function hasHeadacheDetails(entry) {
       return entry.level != null || entry.startTime || entry.endTime || entry.headacheNotes ||
         entry.medicine || entry.cycle || entry.aura || entry.insomnia ||
         entry.medicineNotes || entry.auraNotes || entry.insomniaNotes;
+    }
+
+    function hasEntryDetails(entry) {
+      return hasHeadacheDetails(entry) || (entry.pressureMeasurements?.length ?? 0) > 0;
     }
 
     function getSortedEntries() {
@@ -1099,23 +1328,145 @@
     }
 
     function applyTimeInputFallback() {
+      configureTimeInput(startTime);
+      configureTimeInput(endTime);
+    }
+
+    function configureTimeInput(input) {
       if (supportsInputType('time')) {
-        startTime.type = 'time';
-        endTime.type = 'time';
-        startTime.inputMode = 'none';
-        endTime.inputMode = 'none';
-        startTime.placeholder = '';
-        endTime.placeholder = '';
-      } else {
-        startTime.type = 'text';
-        endTime.type = 'text';
-        startTime.inputMode = 'numeric';
-        endTime.inputMode = 'numeric';
-        startTime.pattern = '[0-9:]*';
-        endTime.pattern = '[0-9:]*';
-        startTime.placeholder = 'HH:MM';
-        endTime.placeholder = 'HH:MM';
+        input.type = 'time';
+        input.inputMode = 'none';
+        input.placeholder = '';
+        return;
       }
+
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.pattern = '[0-9:]*';
+      input.placeholder = 'HH:MM';
+    }
+
+    function currentPressureTime() {
+      const now = new Date();
+      return formatPressureClock(now.getHours() * 60 + now.getMinutes());
+    }
+
+    function appendPressureReading(measurement = {}) {
+      const reading = pressureReadingTemplate.content.firstElementChild.cloneNode(true);
+      const systolic = reading.querySelector('[data-pressure-field="systolic"]');
+      const diastolic = reading.querySelector('[data-pressure-field="diastolic"]');
+      const measuredAt = reading.querySelector('[data-pressure-field="measuredAt"]');
+      const useCurrentTime = reading.querySelector('[data-pressure-action="now"]');
+      configureTimeInput(measuredAt);
+      systolic.value = measurement.systolic ?? '';
+      diastolic.value = measurement.diastolic ?? '';
+      measuredAt.value = measurement.measuredAt ?? '';
+      reading.dataset.editInProgress = String(measurement.systolic != null);
+      for (const input of [systolic, diastolic, measuredAt]) {
+        input.addEventListener('input', () => { reading.dataset.editInProgress = 'true'; });
+      }
+
+      useCurrentTime.hidden = entryDate.value !== todayString();
+      useCurrentTime.addEventListener('click', () => {
+        if (entryDate.value === todayString()) measuredAt.value = currentPressureTime();
+      });
+      reading.querySelector('[data-pressure-action="remove"]').addEventListener('click', () => {
+        reading.remove();
+        addPressureReadingBtn.focus();
+      });
+      pressureReadings.appendChild(reading);
+      return systolic;
+    }
+
+    function addPressureReading() {
+      if (!entryDate.value) {
+        setStatus('Seleziona una data per aggiungere la misurazione.');
+        entryDate.focus();
+        return;
+      }
+
+      const measuredAt = entryDate.value === todayString() ? currentPressureTime() : '';
+      appendPressureReading({ measuredAt }).focus();
+    }
+
+    function sortPressureMeasurements(measurements) {
+      return measurements.sort((first, second) => (
+        first.measuredAt.localeCompare(second.measuredAt) ||
+        first.systolic - second.systolic || first.diastolic - second.diastolic
+      ));
+    }
+
+    function readPressureMeasurements({ showErrors = true } = {}) {
+      const measurements = [];
+      for (const reading of pressureReadings.children) {
+        const systolic = reading.querySelector('[data-pressure-field="systolic"]');
+        const diastolic = reading.querySelector('[data-pressure-field="diastolic"]');
+        const measuredAt = reading.querySelector('[data-pressure-field="measuredAt"]');
+        if (reading.dataset.editInProgress !== 'true' && !systolic.value && !diastolic.value &&
+            !systolic.validity.badInput && !diastolic.validity.badInput) continue;
+
+        const hasValidPressure = (input) => !input.validity.badInput &&
+          Number.isInteger(Number(input.value)) && Number(input.value) > 0 && Number(input.value) <= 2147483647;
+        const invalidPressure = [systolic, diastolic].find((input) => !hasValidPressure(input));
+        if (invalidPressure) {
+          if (showErrors) {
+            setStatus('Inserisci sia la sistolica sia la diastolica come numeri interi positivi.');
+            invalidPressure.focus();
+          }
+          return null;
+        }
+
+        const minutes = parsePressureClock(measuredAt.value);
+        if (minutes === null) {
+          if (showErrors) {
+            setStatus('Inserisci l’ora della misurazione.');
+            measuredAt.focus();
+          }
+          return null;
+        }
+
+        measurements.push({
+          measuredAt: formatPressureClock(minutes),
+          systolic: Number(systolic.value),
+          diastolic: Number(diastolic.value)
+        });
+      }
+      return sortPressureMeasurements(measurements);
+    }
+
+    function pressureMeasurementsChanged(previous, next) {
+      return previous.length !== next.length || next.some((measurement, index) => (
+        measurement.measuredAt !== previous[index].measuredAt || measurement.systolic !== previous[index].systolic ||
+        measurement.diastolic !== previous[index].diastolic
+      ));
+    }
+
+    function readPainFields() {
+      const level = painLevel.value === '' ? null : Number(painLevel.value);
+      if (painLevel.validity.badInput || (level !== null && (!Number.isInteger(level) || level < 0 || level > 10))) {
+        return null;
+      }
+
+      return { level, startTime: startTime.value || '', endTime: endTime.value || '' };
+    }
+
+    function getPressureChartDraft() {
+      const date = entryDate.value;
+      if (!date || date !== selectedDate) return null;
+
+      const saved = data[date] ?? {};
+      const pain = readPainFields();
+      const measurements = readPressureMeasurements({ showErrors: false });
+      const painChanged = pain && (
+        pain.level !== (saved.level ?? null) || pain.startTime !== (saved.startTime || '') || pain.endTime !== (saved.endTime || '')
+      );
+      const pressureChanged = measurements && pressureMeasurementsChanged(saved.pressureMeasurements ?? [], measurements);
+      if (!painChanged && !pressureChanged) return null;
+
+      const entry = { ...saved };
+      if (painChanged) Object.assign(entry, pain);
+      if (pressureChanged) entry.pressureMeasurements = measurements;
+      return { date, entry };
     }
 
     function isInDisplayedMonth(dateStr) {
@@ -1152,18 +1503,15 @@
 
         if (userError) {
           console.error('Errore getUser:', userError);
-          currentUser = null;
-          updateUserInfo();
+          setCurrentUser(null);
           return null;
         }
 
-        currentUser = userData.user || null;
-        updateUserInfo();
+        setCurrentUser(userData.user || null);
         return currentUser;
       } catch (error) {
         console.error('Errore refreshCurrentUser:', error);
-        currentUser = null;
-        updateUserInfo();
+        setCurrentUser(null);
         return null;
       }
     }
@@ -1181,8 +1529,7 @@
         }
 
         if (!sessionData.session) {
-          currentUser = null;
-          updateUserInfo();
+          setCurrentUser(null);
           showAuthView();
           setStatus('Accedi o registrati per vedere il tracker.');
           return false;
@@ -1284,6 +1631,7 @@
     }
 
     async function signOutUser() {
+      const userId = currentUser?.id;
       try {
         const { error } = await supabaseClient.auth.signOut();
 
@@ -1293,10 +1641,9 @@
           return;
         }
 
-        currentUser = null;
-        clearLocalTrackerData();
-        resetEntryForm();
-        updateUserInfo();
+        if (userId) localStorage.removeItem(`${STORAGE_KEY}:${userId}`);
+        if (currentUser && currentUser.id !== userId) return;
+        setCurrentUser(null);
         showAuthView();
         setStatus('');
       } catch (error) {
@@ -1311,8 +1658,13 @@
         return;
       }
 
+      if (saveBtn.disabled) return;
+      const userId = currentUser.id;
+      const loadId = ++entriesLoadId;
+      const isCurrentLoad = () => currentUser?.id === userId && entriesLoadId === loadId;
       try {
-        const { entriesByDate, error } = await entriesRepository.listByDate(currentUser.id);
+        const { entriesByDate, error } = await entriesRepository.listByDate(userId);
+        if (!isCurrentLoad()) return;
 
         if (error) {
           console.error('Errore lettura entries:', error);
@@ -1322,10 +1674,11 @@
 
         data = entriesByDate;
         saveLocalData();
-        renderAll();
         selectDate(todayString());
+        renderAll();
         setStatus('');
       } catch (error) {
+        if (!isCurrentLoad()) return;
         console.error('Errore loadEntriesFromSupabase:', error);
         setStatus('Impossibile aprire il diario. Riprova.');
       }
@@ -1341,20 +1694,23 @@
     function openAppPage(page) {
       if (!page.hidden) return;
 
-      const inDiary = page === diaryPage;
-      entryPage.hidden = inDiary;
-      diaryPage.hidden = !inDiary;
-      entryPageBtn.setAttribute('aria-pressed', String(!inDiary));
-      diaryPageBtn.setAttribute('aria-pressed', String(inDiary));
+      const fromEntry = !entryPage.hidden;
+      for (const [appPage, button] of appPages) {
+        appPage.hidden = appPage !== page;
+        button.setAttribute('aria-pressed', String(appPage === page));
+      }
       window.scrollTo(0, 0);
-      if (inDiary) {
+      if (page === diaryPage) {
         renderChart();
         renderCalendar();
         renderHistory();
+      } else if (page === pressurePage) {
+        renderPressureCard({ showEntryDraft: fromEntry });
       }
     }
 
     function editDiaryDate(dateStr) {
+      if (saveBtn.disabled) return;
       selectDateInDisplayedMonth(dateStr);
       openAppPage(entryPage);
       entryHeading.focus({ preventScroll: true });
@@ -1366,14 +1722,71 @@
     }
 
     function selectDateInDisplayedMonth(dateStr) {
+      if (saveBtn.disabled) return;
       showMonthForDate(dateStr);
+      pressureChartDate = dateStr;
       selectDate(dateStr);
       renderStats();
       renderChart();
       renderHistory();
+      renderPressureCard();
+    }
+
+    function showPressureDay(dateStr) {
+      pressureChartMode = 'day';
+      pressureChartDate = dateStr;
+      if (isInDisplayedMonth(dateStr)) {
+        renderPressureCard();
+      } else {
+        showMonthForDate(dateStr);
+        renderAll();
+      }
+    }
+
+    function renderPressureCard({ showEntryDraft = false } = {}) {
+      if (pressurePage.hidden || appView.classList.contains('hidden')) return;
+
+      const draft = getPressureChartDraft();
+      if (draft && showEntryDraft) {
+        pressureChartDate = draft.date;
+        showMonthForDate(draft.date);
+      }
+
+      if (!isInDisplayedMonth(pressureChartDate)) {
+        const [, , day] = pressureChartDate.split('-').map(Number);
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        pressureChartDate = dateInputValue(new Date(year, month, Math.min(day, lastDay)));
+      }
+
+      const dayMode = pressureChartMode === 'day';
+      pressurePage.dataset.mode = pressureChartMode;
+      pressureDayModeBtn.setAttribute('aria-pressed', String(dayMode));
+      pressureMonthModeBtn.setAttribute('aria-pressed', String(!dayMode));
+      pressureDatePicker.hidden = !dayMode;
+      pressureDate.value = pressureChartDate;
+      pressurePeriodTitle.textContent = dayMode
+        ? formatDate(pressureChartDate)
+        : `Medie giornaliere · ${capitalize(monthName(currentCalendarDate))}`;
+
+      const showDraft = draft && (dayMode ? draft.date === pressureChartDate : isInDisplayedMonth(draft.date));
+      pressureDraftNotice.hidden = !showDraft;
+      let entriesByDate = data;
+      if (showDraft) {
+        pressureDraftNotice.textContent = `Modifiche da salvare · ${formatDate(draft.date)}`;
+        entriesByDate = { ...data, [draft.date]: draft.entry };
+      }
+      renderPressureCharts({
+        mode: pressureChartMode,
+        date: pressureChartDate,
+        entriesByDate,
+        onSelectDate: showPressureDay
+      });
     }
 
     async function saveEntry() {
+      if (saveBtn.disabled) return;
       if (!currentUser) {
         showAuthView();
         setStatus('Devi prima effettuare l’accesso.');
@@ -1381,22 +1794,23 @@
       }
 
       const date = entryDate.value;
-      const level = painLevel.value === '' ? null : Number(painLevel.value);
 
       if (!date) {
         setStatus('Seleziona una data.');
         return;
       }
 
-      if (painLevel.validity.badInput || (level !== null && (!Number.isInteger(level) || level < 0 || level > 10))) {
+      const pain = readPainFields();
+      if (!pain) {
         setStatus('Inserisci un valore intero tra 0 e 10.');
         return;
       }
 
+      const pressureMeasurements = readPressureMeasurements();
+      if (pressureMeasurements === null) return;
+
       const entryPayload = {
-        level,
-        startTime: startTime.value || '',
-        endTime: endTime.value || '',
+        ...pain,
         headacheNotes: headacheNotes.value.trim(),
         medicine: medicineFlag.checked,
         cycle: cycleFlag.checked,
@@ -1405,6 +1819,7 @@
         medicineNotes: medicineNotes.value.trim(),
         auraNotes: auraNotes.value.trim(),
         insomniaNotes: insomniaNotes.value.trim(),
+        pressureMeasurements,
         updatedAt: new Date().toISOString()
       };
 
@@ -1412,10 +1827,20 @@
         setStatus('Compila almeno un campo per salvare il giorno.');
         return;
       }
+      const userId = currentUser.id;
+      const previousPressure = data[date]?.pressureMeasurements ?? [];
+      const pressureChanged = pressureMeasurementsChanged(previousPressure, pressureMeasurements);
+      setEntryMutationPending(true);
       setStatus(`Salvataggio in corso per ${formatDate(date)}...`);
 
       try {
-        const { error } = await entriesRepository.save(currentUser.id, date, entryPayload);
+        const { error, conflict } = await entriesRepository.save(userId, date, entryPayload, pressureChanged ? previousPressure : null);
+        if (currentUser?.id !== userId) return;
+
+        if (conflict) {
+          setStatus('Le misurazioni di questo giorno sono cambiate. Ricarica i dati prima di salvare.');
+          return;
+        }
 
         if (error) {
           console.error('Errore saveEntry:', error);
@@ -1427,16 +1852,20 @@
         saveLocalData();
         if (!entryPage.hidden && entryDate.value === date) {
           showMonthForDate(date);
+          pressureChartDate = date;
         }
         renderAll();
         setStatus(`Giorno salvato (${formatDate(date)}).`);
       } catch (error) {
         console.error('Errore saveEntry catch:', error);
-        setStatus('Salvataggio non riuscito. Riprova.');
+        if (currentUser?.id === userId) setStatus('Salvataggio non riuscito. Riprova.');
+      } finally {
+        setEntryMutationPending(false);
       }
     }
 
     async function deleteEntry() {
+      if (deleteBtn.disabled) return;
       if (!currentUser) {
         showAuthView();
         setStatus('Devi prima effettuare l’accesso.');
@@ -1451,10 +1880,12 @@
       }
 
       if (!data[date]) {
-        if (date === selectedDate && (insomniaFlag.checked || insomniaNotes.value.trim())) {
+        const hasPressureDraft = pressureReadings.childElementCount > 0;
+        if (date === selectedDate && (hasPressureDraft || insomniaFlag.checked || insomniaNotes.value.trim())) {
           clearInsomniaFields();
+          pressureReadings.replaceChildren();
           renderAll();
-          setStatus('Insonnia rimossa.');
+          setStatus(hasPressureDraft ? 'Inserimenti rimossi.' : 'Insonnia rimossa.');
           return;
         }
         setStatus('Per questa data non ci sono dati da eliminare.');
@@ -1462,6 +1893,7 @@
       }
 
       const userId = currentUser.id;
+      setEntryMutationPending(true);
       setStatus(`Eliminazione in corso per ${formatDate(date)}...`);
 
       try {
@@ -1487,6 +1919,8 @@
         if (currentUser?.id === userId) {
           setStatus('Impossibile eliminare il giorno. Riprova.');
         }
+      } finally {
+        setEntryMutationPending(false);
       }
     }
 
@@ -1552,6 +1986,13 @@
 
         if (entry.insomniaNotes) {
           contentParts.push(`<div class="muted"><strong>Note Insonnia:</strong> ${escapeHtml(entry.insomniaNotes)}</div>`);
+        }
+
+        if (entry.pressureMeasurements?.length) {
+          const readings = entry.pressureMeasurements.map(({ measuredAt, systolic, diastolic }) => (
+            `<li>${escapeHtml(measuredAt)} · ${escapeHtml(systolic)}/${escapeHtml(diastolic)} mmHg</li>`
+          ));
+          contentParts.push(`<div class="muted"><strong>Pressione arteriosa</strong><ul class="pressure-history">${readings.join('')}</ul></div>`);
         }
 
         const tr = document.createElement('tr');
@@ -1738,6 +2179,289 @@
       });
     }
 
+    let pressureTrendChart = null;
+    let pressurePainTimelineChart = null;
+
+    function parsePressureClock(value) {
+      const match = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/.exec(String(value ?? '').trim());
+      if (!match || Number(match[1]) > 23) return null;
+      return Number(match[1]) * 60 + Number(match[2]);
+    }
+
+    function formatPressureClock(minutes) {
+      const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const minute = String(minutes % 60).padStart(2, '0');
+      return hour + ':' + minute;
+    }
+
+    function getPressureChartReadings(entry) {
+      return (entry?.pressureMeasurements ?? [])
+        .map(({ systolic, diastolic, measuredAt }) => ({
+          x: parsePressureClock(measuredAt),
+          systolic,
+          diastolic
+        }))
+        .filter(({ x, systolic, diastolic }) => (
+          x !== null && Number.isFinite(systolic) && Number.isFinite(diastolic)
+        ))
+        .sort((first, second) => first.x - second.x);
+    }
+
+    function getDailyPainTimeline(entry) {
+      const start = parsePressureClock(entry?.startTime);
+      const end = parsePressureClock(entry?.endTime);
+      const level = Number.isFinite(entry?.level) ? entry.level : null;
+      const score = level === null ? 'Mal di testa' : 'Dolore ' + level + '/10';
+
+      if (start !== null && end !== null) {
+        const crossesMidnight = end < start;
+        const summary = score + ' · ' + formatPressureClock(start) + '–' + formatPressureClock(end)
+          + (crossesMidnight ? ' (giorno seguente)' : '');
+        return {
+          data: [{ x: start, y: 0.5 }, { x: crossesMidnight ? 1440 : end, y: 0.5 }],
+          summary,
+          showLine: true,
+          pointRadius: [4, crossesMidnight ? 0 : 4]
+        };
+      }
+
+      if (start !== null) {
+        return {
+          data: [{ x: start, y: 0.5 }, { x: 1440, y: 0.5 }],
+          summary: score + ' · inizio ' + formatPressureClock(start) + ' · fine non registrata',
+          showLine: true,
+          pointRadius: [5, 0],
+          pointHoverRadius: [6, 0],
+          pointHitRadius: [3, 0],
+          borderDash: [6, 5]
+        };
+      }
+
+      if (end !== null) {
+        return {
+          data: [{ x: end, y: 0.5 }],
+          summary: score + ' · fine ' + formatPressureClock(end),
+          pointRadius: 5
+        };
+      }
+
+      if (level !== null) {
+        return {
+          data: [{ x: 0, y: 0.5 }, { x: 1440, y: 0.5 }],
+          summary: score + ' · orario non registrato',
+          showLine: true,
+          pointRadius: 0,
+          borderDash: [6, 5]
+        };
+      }
+
+      return { data: [], summary: 'Nessun dato sul dolore per questo giorno.' };
+    }
+
+    function getOvernightPainContinuation(date, entriesByDate) {
+      const [year, month, day] = date.split('-').map(Number);
+      const previousDate = dateInputValue(new Date(year, month - 1, day - 1));
+      const previousEntry = entriesByDate[previousDate];
+      const start = parsePressureClock(previousEntry?.startTime);
+      const end = parsePressureClock(previousEntry?.endTime);
+      if (start === null || end === null || end === 0 || end >= start) return null;
+
+      const score = Number.isFinite(previousEntry.level) ? `Dolore ${previousEntry.level}/10` : 'Mal di testa';
+      return {
+        data: [{ x: 0, y: 0.5 }, { x: end, y: 0.5 }],
+        summary: `${score} dal giorno precedente · fine ${formatPressureClock(end)}`,
+        showLine: true,
+        pointRadius: [0, 4]
+      };
+    }
+
+    function getMonthlyPressureChartData(date, entriesByDate) {
+      const [year, month] = date.split('-').map(Number);
+      const days = new Date(year, month, 0).getDate();
+      const monthPrefix = date.slice(0, 7);
+      const pressure = [];
+      const pain = [];
+
+      for (let day = 1; day <= days; day++) {
+        const entryDate = monthPrefix + '-' + String(day).padStart(2, '0');
+        const entry = entriesByDate[entryDate];
+        const readings = getPressureChartReadings(entry);
+
+        if (readings.length) {
+          const totals = readings.reduce((sum, reading) => ({
+            systolic: sum.systolic + reading.systolic,
+            diastolic: sum.diastolic + reading.diastolic
+          }), { systolic: 0, diastolic: 0 });
+          pressure.push({
+            x: day,
+            date: entryDate,
+            systolic: totals.systolic / readings.length,
+            diastolic: totals.diastolic / readings.length,
+            count: readings.length
+          });
+        }
+
+        if (Number.isFinite(entry?.level)) {
+          pain.push({ x: day, y: entry.level, date: entryDate });
+        }
+      }
+
+      return {
+        days,
+        pressure,
+        pain: {
+          data: pain,
+          summary: pain.length ? 'Dolore giornaliero (0–10)' : 'Nessun punteggio di dolore per questo mese.',
+          pointRadius: 4
+        }
+      };
+    }
+
+    function renderPressureCharts({ mode, date, entriesByDate, onSelectDate }) {
+      const isMonthly = mode === 'month';
+      const entry = entriesByDate[date];
+      const model = isMonthly ? getMonthlyPressureChartData(date, entriesByDate) : {
+        pressure: getPressureChartReadings(entry),
+        pain: getDailyPainTimeline(entry),
+        continuation: getOvernightPainContinuation(date, entriesByDate)
+      };
+      const painTracks = [model.continuation, model.pain].filter((track) => track?.data.length);
+
+      const trendCanvas = document.getElementById('pressureChart');
+      const painCanvas = document.getElementById('pressurePainChart');
+      const painSummary = document.getElementById('pressurePainSummary');
+      const pressureEmpty = document.getElementById('pressureChartEmpty');
+      const hasPressure = model.pressure.length > 0;
+      const showPainTrack = hasPressure || painTracks.length > 0;
+      trendCanvas.parentElement.hidden = !hasPressure;
+      painCanvas.parentElement.hidden = !showPainTrack;
+      painSummary.textContent = painTracks.length ? painTracks.map((track) => track.summary).join(' · ') : model.pain.summary;
+      pressureEmpty.hidden = hasPressure;
+      pressureEmpty.textContent = isMonthly
+        ? 'Nessuna misurazione per questo mese.'
+        : 'Nessuna misurazione per questo giorno.';
+
+      const formatValue = (value) => value.toLocaleString('it-IT', { maximumFractionDigits: 1 });
+      const formatX = (value) => isMonthly ? String(value) : formatPressureClock(value);
+      const selectReadingDate = (_event, elements, chartInstance) => {
+        const selected = elements[0];
+        if (isMonthly && selected) {
+          const point = chartInstance.data.datasets[selected.datasetIndex].data[selected.index];
+          onSelectDate?.(point.date);
+        }
+      };
+      const sharedOptions = (showXTicks) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { autoPadding: false, padding: { right: 14, top: 4 } },
+        interaction: { mode: 'nearest', intersect: true },
+        onClick: selectReadingDate,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            type: 'linear',
+            min: isMonthly ? 1 : 0,
+            max: isMonthly ? model.days : 1440,
+            border: { display: showXTicks },
+            grid: { drawTicks: showXTicks },
+            afterBuildTicks(scale) {
+              if (isMonthly) {
+                scale.ticks = Array.from({ length: model.days }, (_, index) => ({ value: index + 1 }));
+              }
+            },
+            ticks: {
+              display: showXTicks,
+              align: 'inner',
+              maxRotation: 0,
+              stepSize: isMonthly ? undefined : 240,
+              maxTicksLimit: isMonthly ? 16 : 7,
+              callback: formatX
+            }
+          },
+          y: {
+            // Reserve the same left gutter for the numeric pressure labels and the pain strip.
+            afterFit(scale) { scale.width = 56; }
+          }
+        }
+      });
+
+      const trendOptions = sharedOptions(false);
+      trendOptions.scales.y.title = { display: true, text: 'mmHg' };
+      trendOptions.scales.y.grace = '10%';
+      trendOptions.scales.y.ticks = { precision: 0 };
+      trendOptions.plugins.tooltip = {
+        callbacks: {
+          title([item]) {
+            return isMonthly ? 'Giorno ' + item.raw.x : formatPressureClock(item.raw.x);
+          },
+          label({ raw }) {
+            const readings = raw.count === 1 ? ' · 1 misurazione' : ' · ' + raw.count + ' misurazioni';
+            return formatValue(raw.systolic) + '/' + formatValue(raw.diastolic) + ' mmHg'
+              + (isMonthly ? readings : '');
+          }
+        }
+      };
+
+      const painOptions = sharedOptions(true);
+      painOptions.scales.y.min = 0;
+      painOptions.scales.y.max = isMonthly ? 10 : 1;
+      painOptions.scales.y.ticks = { display: isMonthly, stepSize: 5 };
+      painOptions.scales.y.grid = { display: isMonthly };
+      painOptions.scales.y.border = { display: isMonthly };
+      painOptions.plugins.tooltip = {
+        callbacks: {
+          title: () => '',
+          label: ({ raw, dataset }) => isMonthly ? 'Dolore ' + raw.y + '/10' : dataset.label
+        }
+      };
+
+      pressureTrendChart?.destroy();
+      pressurePainTimelineChart?.destroy();
+      pressureTrendChart = null;
+      pressurePainTimelineChart = null;
+
+      if (hasPressure) {
+        pressureTrendChart = new Chart(trendCanvas.getContext('2d'), {
+          type: 'scatter',
+          data: {
+            datasets: [
+              { label: 'Sistolica', field: 'systolic', color: '#2b8f89' },
+              { label: 'Diastolica', field: 'diastolic', color: '#7565be' }
+            ].map(({ label, field, color }) => ({
+              label,
+              data: model.pressure.map((point) => ({ ...point, y: point[field] })),
+              backgroundColor: color,
+              borderColor: color,
+              borderWidth: 2,
+              showLine: true,
+              pointStyle: 'circle',
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              clip: false
+            }))
+          },
+          options: trendOptions
+        });
+      }
+
+      if (!showPainTrack) return;
+      pressurePainTimelineChart = new Chart(painCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          datasets: painTracks.map(({ summary, ...painDataset }) => ({
+            label: summary,
+            backgroundColor: '#e34090',
+            borderColor: '#e34090',
+            borderWidth: 3,
+            showLine: false,
+            clip: false,
+            ...painDataset
+          }))
+        },
+        options: painOptions
+      });
+    }
+
     function exportPdf() {
       const PdfDocument = window.jspdf?.jsPDF;
       if (!PdfDocument) {
@@ -1745,7 +2469,7 @@
         return;
       }
 
-      const pdf = buildDiaryPdf(PdfDocument, getSortedEntries(), currentCalendarDate);
+      const pdf = buildDiaryPdf(PdfDocument, getSortedEntries().filter(hasHeadacheDetails), currentCalendarDate);
       pdf.save(`riassunto-headache-${new Date().toISOString().slice(0, 10)}.pdf`);
       setStatus('PDF scaricato con successo.');
     }
@@ -2215,15 +2939,34 @@
       renderHistory();
       renderChart();
       renderCalendar();
+      renderPressureCard();
     }
 
     signUpBtn.addEventListener('click', signUpWithEmail);
     signInBtn.addEventListener('click', signInWithEmail);
     signOutBtn.addEventListener('click', signOutUser);
-    entryPageBtn.addEventListener('click', () => openAppPage(entryPage));
-    diaryPageBtn.addEventListener('click', () => openAppPage(diaryPage));
+    for (const [page, button] of appPages) {
+      button.addEventListener('click', () => openAppPage(page));
+    }
     saveBtn.addEventListener('click', saveEntry);
     deleteBtn.addEventListener('click', deleteEntry);
+    addPressureReadingBtn.addEventListener('click', addPressureReading);
+    pressureDayModeBtn.addEventListener('click', () => showPressureDay(pressureChartDate));
+    pressureMonthModeBtn.addEventListener('click', () => {
+      pressureChartMode = 'month';
+      renderPressureCard();
+    });
+    pressureDate.addEventListener('change', () => {
+      if (pressureDate.value) showPressureDay(pressureDate.value);
+    });
+
+    for (const button of pressureDatePicker.querySelectorAll('[data-day-step]')) {
+      button.addEventListener('click', () => {
+        const [year, month, day] = pressureChartDate.split('-').map(Number);
+        const targetDate = new Date(year, month - 1, day + Number(button.dataset.dayStep));
+        showPressureDay(dateInputValue(targetDate));
+      });
+    }
 
     reloadBtn.addEventListener('click', async () => {
       if (!currentUser) {
@@ -2244,7 +2987,7 @@
       }
     });
 
-    for (const button of diaryPage.querySelectorAll('[data-month-step]')) {
+    for (const button of appView.querySelectorAll('[data-month-step]')) {
       button.addEventListener('click', () => {
         currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + Number(button.dataset.monthStep), 1);
         renderAll();
@@ -2252,8 +2995,7 @@
     }
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      currentUser = session?.user || null;
-      updateUserInfo();
+      setCurrentUser(session?.user || null);
 
       if (currentUser) {
         showAppView();
